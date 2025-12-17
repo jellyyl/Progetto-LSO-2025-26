@@ -51,9 +51,10 @@ int main() {
 
     while(1) {
         struct sockaddr_in client_addr;
+        socklen_t size_addr_client = sizeof(client_addr);
 
         // La accept si blocca finché un client non si connette
-        int newsd = accept(sd, (struct sockaddr *) &client_addr, sizeof(client_addr));
+        int newsd = accept(sd, (struct sockaddr *) &client_addr, &size_addr_client);
 
         /*
          salvo il socket descriptor della connessione accettata, 
