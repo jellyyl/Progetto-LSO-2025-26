@@ -1,35 +1,29 @@
-# Variabili
 CC = gcc
 CFLAGS = -Wall -pthread
+INCLUDES = -I./Server  # Dice a gcc di cercare gli header anche in Server/
 
-# Percorsi ai file sorgente
-SERVER_SRC = Server/main.c
-CLIENT_SRC = Client/clientTest.c
+# File Oggetto (il risultato della compilazione intermedia)
+SERVER_OBJS = Server/main.o Server/server.o
+CLIENT_OBJS = Client/clientTest.o
 
-# Nomi degli ESEGUIBILI (in minuscolo per evitare conflitti con le cartelle)
 SERVER_BIN = server_exec
 CLIENT_BIN = client_exec
 
-# Regola principale
 all: $(SERVER_BIN) $(CLIENT_BIN)
 
-# Compilazione del Server
-$(SERVER_BIN): $(SERVER_SRC)
-	$(CC) $(CFLAGS) $(SERVER_SRC) -o $(SERVER_BIN)
+# FASE DI LINKING: Unisce gli oggetti in un eseguibile
+$(SERVER_BIN): $(SERVER_OBJS)
+	$(CC) $(CFLAGS) $(SERVER_OBJS) -o $(SERVER_BIN)
 
-# Compilazione del Client
-$(CLIENT_BIN): $(CLIENT_SRC)
-	$(CC) $(CFLAGS) $(CLIENT_SRC) -o $(CLIENT_BIN)
+$(CLIENT_BIN): $(CLIENT_OBJS)
+	$(CC) $(CFLAGS) $(CLIENT_OBJS) -o $(CLIENT_BIN)
 
-# Regole per l'esecuzione
-run-server: $(SERVER_BIN)
-	./$(SERVER_BIN)
+# FASE DI COMPILAZIONE: Crea i file .o dai file .c
+# % è un carattere jolly: trasforma ogni .c in un .o
+%.o: %.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-run-client: $(CLIENT_BIN)
-	./$(CLIENT_BIN)
-
-# Pulizia
 clean:
-	rm -f $(SERVER_BIN) $(CLIENT_BIN)
+	rm -f $(SERVER_OBJS) $(CLIENT_OBJS) $(SERVER_BIN) $(CLIENT_BIN)
 
-.PHONY: all clean run-server run-client
+.PHONY: all clean
