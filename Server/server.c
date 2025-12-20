@@ -71,6 +71,11 @@ int handle_client(int newsd, void *(*handler)(void *)) {
     return 0;
 }
 
+void read_from_client(int sd, char *buffer){
+    if( recv(sd, buffer, sizeof(buffer), 0) < 0)
+        perror("Errore lettura dal client");
+}
+
 
 void close_server(int sd) {
     close(sd);
