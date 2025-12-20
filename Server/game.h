@@ -29,6 +29,6 @@ typedef struct{
     pthread_mutex_t game_mute;
 } Game;
 
-void game_action(int action);
+void game_action(int action, int client_id);
 
 #endif
