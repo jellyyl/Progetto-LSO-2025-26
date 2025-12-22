@@ -1,16 +1,9 @@
 #ifndef GAME_H
 #define GAME_H
 
+#define LIST_INIT_SIZE 100
+
 #include <pthread.h>
-
-//Mutex per proteggere la ricezione lista delle partite
-pthread_mutex_t mutex_lista = PTHREAD_MUTEX_INITIALIZER;
-
-const int list_init_size = 10;
-int list_increment_size = 0;
-
-// Array di partite disponibile per tutti i thread
-Game * list_game[list_init_size];
 
 //Azioni del giocatore
 typedef enum{
@@ -34,12 +27,22 @@ typedef struct{
     int id_player2;
     char table[3][3]; //così char posso mettere visivamente "X" e "O"
     int state;
-    int turn;
+    int turn; //0 player 1; 1 player 2;
     pthread_mutex_t game_mutex;
 } Game;
 
+//exern serve per rendere visibili le variabili in altri file, se non ci fosse ogni file avrebbe la sua copia
+//Mutex per proteggere la ricezione lista delle partite
+extern pthread_mutex_t mutex_lista;
+extern int list_increment_game_id;
+
+// Array di partite disponibile per tutti i thread
+extern Game * list_game[LIST_INIT_SIZE];
+
 void game_action(int action, int client_id, int sd);
-void get_list_game();
+void get_list_game(int sd);
 void init();
+void create_game(int client_id);
+void create_game_into_list(int client_id, int found_index);
 
 #endif
