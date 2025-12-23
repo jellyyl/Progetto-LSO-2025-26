@@ -10,19 +10,23 @@ Game * list_game[LIST_INIT_SIZE] = {NULL};
 //utilizzare un arrays di gamesì globale per la lista delle partire
 
 //Funzione principale che gestisce le azioni dell'utente
-void game_action(int action, int client_id, int sd){
+void game_action(int client_id, int sd){
 
     while(1) {
+        int action = 0;
+        recv(sd, &action, sizeof(int), 0);
+
         switch (action)
         {
             case CREATE:
-                create_game();
+                create_game(client_id);
                 break;
             case LIST:
                 get_list_game(sd);
                 break;
             case JOIN:
-                join_game();
+                int game_id = recv(sd, &game_id, sizeof(int), 0);
+                join_game(client_id, game_id);
                 break;
             case MOVE:
                 move_character();
@@ -36,16 +40,6 @@ void game_action(int action, int client_id, int sd){
     }
 
 }
-
-/*
-Dovrebbe essere inutile se alloco dinamicamente l'array di partite con malloc
-void init(){
-    for (int i = 0; i<LIST_INIT_SIZE; i++){
-        list_game[i] = malloc(sizeof(Game));
-    }
-}
-*/
-
 
 void get_list_game(int sd){
     char buffer[2048] = "";
@@ -81,6 +75,51 @@ void create_game(int client_id){
    create_game_into_list(client_id, found_index);
 
    pthread_mutex_unlock(&mutex_lista);
+}
+
+void join_game(int client_id, int game_id, int sd){
+    Game* selected_game = NULL;
+
+    //Inizia la fese di join della partita
+    pthread_mutex_lock(&mutex_lista);
+
+    for (int i = 0; i < LIST_INIT_SIZE; i++) {
+        if (list_game[i] != NULL && list_game[i]->id == game_id && list_game[i]->state == ST_WAITING) {
+            selected_game = list_game[i];
+            break;
+        }
+    }
+
+    if(selected_game == NULL){
+        pthread_mutex_unlock(&mutex_lista);
+        send(sd, "JOIN_ERROR", 10, 0);
+        return;
+    }
+    
+    pthread_mutex_unlock(&mutex_lista);
+
+    //ora la fase di approvazione della partita
+    pthread_mutex_lock(&selected_game->game_mutex);
+    selected_game->id_player2 = client_id;
+    selected_game->state = ST_APPROVE; 
+
+    send(selected_game->id_player1, "JOIN_REQUEST\n", 13, 0);
+
+    //Questo while serve per attendere che il player 1 approvi o meno la richiesta di join
+    while (selected_game->state == ST_APPROVE) {
+        pthread_cond_wait(&selected_game->cond_approve, &selected_game->game_mutex);
+    }
+
+    //Una volta svegliato il thread controllo lo stato della partita
+    if (selected_game->state == ST_PLAYING) {
+        send(sd, "JOIN_OK", 7, 0);
+    } else {
+        send(sd, "JOIN_DENIED", 11, 0);
+        selected_game->id_player2 = -1; 
+    }
+
+    pthread_mutex_unlock(&selected_game->game_mutex);
+
 }
 
 void create_game_into_list(int client_id, int found_index){
