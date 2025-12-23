@@ -4,26 +4,30 @@
 
 //Funzione principale che gestisce le azioni dell'utente
 void game_action(int action, int client_id, int sd){
-    switch (action)
-    {
-    case CREATE:
-        create_game();
-        break;
-    case LIST:
-        get_list_game(sd);
-        break;
-    case JOIN:
-        join_game();
-        break;
-    case MOVE:
-        move_character();
-        break;
-    case REMATCH:
-        rematch();
-        break;
-    default:
-        break;
+
+    while(1) {
+        switch (action)
+        {
+            case CREATE:
+                create_game();
+                break;
+            case LIST:
+                get_list_game(sd);
+                break;
+            case JOIN:
+                join_game();
+                break;
+            case MOVE:
+                move_character();
+                break;
+            case REMATCH:
+                rematch();
+                break;
+            default:
+                break;
+        }
     }
+
 }
 
 void init(){

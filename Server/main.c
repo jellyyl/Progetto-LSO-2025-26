@@ -21,10 +21,8 @@ int main() {
 
     while(1) {
         int newsd = accept_client(sd);
-
         handle_client(newsd, game_action());
     }
-
 
     close_server(sd);
     return 0;
