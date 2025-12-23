@@ -17,8 +17,7 @@ int main() {
 
     int sd;
     sd = start_server(5200, 5);
-    init();
-
+    //init(); inutile con allocazione dinamica dell'array di partite
     while(1) {
         int newsd = accept_client(sd);
         handle_client(newsd, game_action());
