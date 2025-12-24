@@ -11,12 +11,14 @@ typedef enum{
     LIST = 2,
     JOIN = 3,
     MOVE = 4,
-    REMATCH = 5
+    REMATCH = 5,
+    APPROVE = 6
 } Actions; 
 
 typedef enum {
     ST_NEW,      
-    ST_WAITING,  
+    ST_WAITING, 
+    ST_APPROVE,
     ST_PLAYING,  
     ST_FINISHED  
 } GameState;
@@ -29,6 +31,7 @@ typedef struct{
     int state;
     int turn; //0 player 1; 1 player 2;
     pthread_mutex_t game_mutex;
+    pthread_cond_t cond_approve;
 } Game;
 
 //exern serve per rendere visibili le variabili in altri file, se non ci fosse ogni file avrebbe la sua copia
@@ -39,10 +42,12 @@ extern int list_increment_game_id;
 // Array di partite disponibile per tutti i thread
 extern Game * list_game[LIST_INIT_SIZE];
 
-void game_action(int action, int client_id, int sd);
+void game_action(int client_id, int sd);
 void get_list_game(int sd);
-void init();
 void create_game(int client_id);
 void create_game_into_list(int client_id, int found_index);
+void join_game(int client_id, int game_id, int sd);
+Game * find_game_by_id(int game_id);
+void approve_join_request(int game_id, int sd, int response);
 
 #endif
