@@ -47,13 +47,9 @@ Game* get_game(game_vector_t* game_v, int index){
 
     Game* out_game = NULL;
 
-    pthread_mutex_lock(&game_v->mutex_list);
-
     if (index >= 0 && index < game_v->size){
         out_game = game_v->vector[index];
     }
-
-    pthread_mutex_unlock(&game_v->mutex_list);
 
     return out_game;
 }
@@ -77,7 +73,6 @@ int remove_game(game_vector_t* game_v, int index){
             resize(game_v, game_v->size/2);
         }
             
-        
     }
 
     pthread_mutex_unlock(&game_v->mutex_list);
@@ -89,36 +84,36 @@ int resize(game_vector_t* game_v, int new_size) {
 
     if(game_v->vector !=NULL){
 
-        Game** temp_vector = malloc(sizeof(Game*) * new_size);
-        int effective_size;
+        Game** temp_vector = calloc(new_size, sizeof(Game*));
         int size = game_v->size;
-
-
-        if(size < new_size) {
-            effective_size = size;
-        } else {
-            effective_size = new_size;
-        }
-
+        int effective_size = size;
         int temp_curr_index=0;
+
+        if(size > new_size) {
+            effective_size = new_size;
+        } 
 
         for(int i=0; i<effective_size; i++) {
 
             if(game_v->vector[i] != NULL) {
-                Game* g_copy = malloc(sizeof(Game));
-                Game 
-                *(g_copy) = 
-                temp_vector[temp_curr_index];
-                game_v->vector[i];
+                temp_vector[temp_curr_index] = game_v->vector[i];
                 temp_curr_index++;
             }
         }
         
+        if(size > new_size) {
+            //libero gli elementi non copiati
+            free_vector_interval(game_v->vector, temp_curr_index, size);
+        }
+
         free(game_v->vector);
         game_v->vector = temp_vector;
         game_v->current_index = temp_curr_index;
         game_v->count = temp_curr_index;
         game_v->size = new_size;
+
+        printf("current index: %d", game_v->current_index);
+        printf("Resized game vector from size: %d to size: %d\n", size, new_size);
         return 0;
     }
 
@@ -134,40 +129,15 @@ void free_vector(Game** vector, int size){
         }
     }
     free(vector);
+
+
 }
 
-void move_vector(game_vector_t* game_v1, game_vector_t* game_v2) {
+void free_vector_interval(Game** vector, int start, int end){
 
-
-    int size1 = game_v1->size;
-    int size2 = game_v2->size;
-    Game** vector1 = game_v1->vector;
-    Game** vector2 = game_v2->vector;;
-
-    int effective_size = game_v1->size;
-    int temp_curr_index=0;
-
-    if(size1 < size2) {
-        effective_size = size1;
-    } 
-
-    for(int i=0; i<effective_size; i++) {
-
-        if(vector2[i] != NULL) {
-            Game* g_copy = malloc(sizeof(Game));
-            Game game_elem = *(vector2[i]);
-            *(g_copy) = game_elem;
-            vector1[temp_curr_index] = g_copy;
-            temp_curr_index++;
+    for(int i=start; i<end; i++){
+        if (vector[i] != NULL){
+            free(vector[i]);
         }
     }
-
-    free_vector(game_v2->vector, game_v2->size);
-
-    game_v1->current_index = temp_curr_index;
-    game_v1->count= game_v2->count;
-    game_v1->mutex_list = game_v2->mutex_list;
-
-    
-
 }

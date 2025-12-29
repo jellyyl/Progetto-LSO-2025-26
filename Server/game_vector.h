@@ -4,7 +4,7 @@
 #include <pthread.h>
 #include "game.h"
 
-#define LIST_INIT_SIZE 100
+#define LIST_INIT_SIZE 1
 
 //valutare di dichiarare la struct game qui dentro game_list.h
 
