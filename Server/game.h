@@ -1,8 +1,6 @@
 #ifndef GAME_H
 #define GAME_H
 
-#define LIST_INIT_SIZE 100
-
 #include <pthread.h>
 
 //Azioni del giocatore
@@ -34,18 +32,10 @@ typedef struct{
     pthread_cond_t cond_approve;
 } Game;
 
-//exern serve per rendere visibili le variabili in altri file, se non ci fosse ogni file avrebbe la sua copia
-//Mutex per proteggere la ricezione lista delle partite
-extern pthread_mutex_t mutex_lista;
-extern int list_increment_game_id;
-
-// Array di partite disponibile per tutti i thread
-extern Game * list_game[LIST_INIT_SIZE];
-
 void game_action(int client_id, int sd);
 void get_list_game(int sd);
 void create_game(int client_id);
-void create_game_into_list(int client_id, int found_index);
+Game* create_game_into_vector(int client_id);
 void join_game(int client_id, int game_id, int sd);
 Game * find_game_by_id(int game_id);
 void approve_join_request(int game_id, int sd, int response);
