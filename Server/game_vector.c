@@ -19,7 +19,7 @@ void destroy_game_vector(game_vector_t* game_v){
 }
 
 
-void insert_game(game_vector_t* game_v, Game new_game){
+void insert_game(game_vector_t* game_v, Game* new_game){
     pthread_mutex_lock(&game_v->mutex_list);
 
     int index = game_v->current_index;
@@ -28,8 +28,7 @@ void insert_game(game_vector_t* game_v, Game new_game){
         resize(game_v, game_v->size*2);
     }
 
-    game_v->vector[index] = malloc(sizeof(Game));
-    *(game_v->vector[index]) = new_game;
+    game_v->vector[index] = new_game;
     
     //incremento indice corrente
     game_v->current_index++;
