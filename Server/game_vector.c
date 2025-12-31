@@ -19,7 +19,7 @@ void destroy_game_vector(game_vector_t* game_v){
 }
 
 
-void insert_game(game_vector_t* game_v, Game* new_game){
+void insert_game_into_vector(game_vector_t* game_v, Game* new_game){
     pthread_mutex_lock(&game_v->mutex_list);
 
     int index = game_v->current_index;
@@ -28,62 +28,29 @@ void insert_game(game_vector_t* game_v, Game* new_game){
         resize(game_v, game_v->size*2);
     }
 
-    game_v->vector[index] = new_game;
-    
+    Game* temp_game = malloc(sizeof(Game));
+    *temp_game = *new_game;
+    game_v->vector[index] = temp_game;
+
     //incremento indice corrente
     game_v->current_index++;
 
     pthread_mutex_unlock(&game_v->mutex_list);
 }
 
-Game* get_game(game_vector_t* game_v, int index){
-
-    Game* out_game = NULL;
-
-    if (index >= 0 && index < game_v->size){
-        out_game = game_v->vector[index];
-    }
-
-    return out_game;
-}
-
-
-int remove_game(game_vector_t* game_v, int index){
-
-
-    int result = -1;
-    pthread_mutex_lock(&game_v->mutex_list);
-
-    if(index < game_v->size && game_v->vector[index]!=NULL) {
-
-        int current_index = game_v->current_index;
-        Game* ptr = game_v->vector[index];
-        game_v->vector[index] = game_v->vector[current_index-1];
-        game_v->vector[current_index-1] = NULL;
-        free(ptr);
-        game_v->current_index--;
-        result=0;
-
-        if(game_v->current_index <= (game_v->size/4)) {
-            resize(game_v, game_v->size/2);
-        }
-            
-    }
-
-    pthread_mutex_unlock(&game_v->mutex_list);
-
-    return result;
-}
-
 Game* get_game_by_id(game_vector_t* game_v, int game_id){
 
     Game* found_game = NULL;
+
+    pthread_mutex_lock(&game_v->mutex_list);
     
     int found_index = find_index_by_game_id(game_v, game_id);
 
     if(found_index != -1){
         found_game = game_v->vector[found_index];
     }
+
+    pthread_mutex_unlock(&game_v->mutex_list);
     
     return found_game;
 }
@@ -107,15 +74,43 @@ int remove_game_by_id(game_vector_t* game_v, int game_id){
 
     int result = -1;
 
+    pthread_mutex_lock(&game_v->mutex_list);
+
     int found_index = find_index_by_game_id(game_v, game_id);
 
     if(found_index != -1){
         result = remove_game(game_v, found_index);
     }
+    
+    pthread_mutex_unlock(&game_v->mutex_list);
 
     return result;
 }
 
+//private helper function
+int remove_game(game_vector_t* game_v, int index){
+
+
+    int result = -1;
+
+    if(index < game_v->size && game_v->vector[index]!=NULL) {
+
+        int current_index = game_v->current_index;
+        Game* ptr = game_v->vector[index];
+        game_v->vector[index] = game_v->vector[current_index-1];
+        game_v->vector[current_index-1] = NULL;
+        free(ptr);
+        game_v->current_index--;
+        result=0;
+
+        if(game_v->current_index <= (game_v->size/4)) {
+            resize(game_v, game_v->size/2);
+        }
+            
+    }
+
+    return result;
+}
 
 int resize(game_vector_t* game_v, int new_size) {
 
@@ -150,7 +145,6 @@ int resize(game_vector_t* game_v, int new_size) {
     return 0;
     
 }
-
 
 
 void free_vector(Game** vector, int size){

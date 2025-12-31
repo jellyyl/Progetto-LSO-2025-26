@@ -18,8 +18,7 @@ typedef struct game_vector_t{
 
 void init_game_vector(game_vector_t* game_v);
 void destroy_game_vector(game_vector_t* game_v);
-void insert_game(game_vector_t* game_v, Game* new_game);
-Game* get_game(game_vector_t* game_v, int index);
+void insert_game_into_vector(game_vector_t* game_v, Game* new_game);
 Game* get_game_by_id(game_vector_t* game_v, int game_id);
 int remove_game_by_id(game_vector_t* game_v, int game_id);
 int remove_game(game_vector_t* game_v, int index);

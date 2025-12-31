@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -pthread -g
 
 # File Oggetto per il server
-SERVER_OBJS = main.o game_vector.o server.o
+SERVER_OBJS = main.o game_vector.o game.o server.o
 SERVER_BIN = server_exec
 
 all: $(SERVER_BIN)

@@ -5,8 +5,10 @@ game_vector_t game_vector;
 int list_increment_game_id = 0;
 
 // Funzione principale che gestisce le azioni dell'utente
-void game_action(int client_id, int sd)
+void game_action(void *arg)
 {
+    int client_id = *(int *)arg;
+    int sd = client_id; // In questo contesto, assumiamo che client_id sia anche il socket descriptor
 
     while (1)
     {
@@ -26,30 +28,43 @@ void game_action(int client_id, int sd)
             int game_id;
             if (recv(sd, &game_id, sizeof(int), 0) <= 0) //leggo l'id della partita
                 break; 
-            join_game(client_id, game_id, sd);
+            //join_game(client_id, game_id, sd);
             break;
         }
         case MOVE:
         int game_id;
             if (recv(sd, &game_id, sizeof(int), 0) <= 0) //leggo l'id della partita
                 break; 
-            move(client_id, game_id, sd);
+            //move(client_id, game_id, sd);
             break;
         case REMATCH:
-            rematch();
+            //rematch();
             break;
         case APPROVE:
         {
             int game_id, response;
             recv(sd, &game_id, sizeof(int), 0);
             recv(sd, &response, sizeof(int), 0);
-            approve_join_request(game_id, sd, response);
+            //approve_join_request(game_id, sd, response);
             break;
         }
         default:
             break;
         }
     }
+}
+
+
+void init_game_session(){
+
+    init_game_vector(&game_vector);
+
+}
+
+void close_game_session(){
+
+    destroy_game_vector(&game_vector);
+
 }
 
 void get_list_game(int sd)
@@ -69,15 +84,14 @@ void get_list_game(int sd)
     send(sd, buffer, strlen(buffer), 0);
 }
 
-// con allocazione dinamica dell'array sarebbe complessa perchè dovrei bloccare tutti i thread e quindi bloccare anche le partite
 void create_game(int client_id)
 {
-    Game *new_game = create_game_into_vector(client_id);
-    if(new_game == NULL){
-        return;
-    }
-    insert_game(&game_vector, new_game);
+    Game new_game = generate_game(client_id);
+
+    insert_game_into_vector(&game_vector, &new_game);
 }
+
+/*
 
 void join_game(int client_id, int game_id, int sd)
 {
@@ -194,47 +208,30 @@ void move(int client_id, int game_id, int sd)
     pthread_mutex_unlock(selected_game->game_mutex);
     
 }
+*/
 
-Game *find_game_by_id(int game_id)
-{
-    Game *selected_game = NULL;
 
-    pthread_mutex_lock(&mutex_lista);
-
-    for (int i = 0; i < LIST_INIT_SIZE; i++)
-    {
-        if (list_game[i] != NULL && list_game[i]->id == game_id)
-        {
-            selected_game = list_game[i];
-            break;
-        }
-    }
-
-    pthread_mutex_unlock(&mutex_lista);
-    return selected_game;
-}
-
-Game *create_game_into_vector(int client_id)
+Game generate_game(int client_id)
 {
     // inizializzazione game
-    Game *new_game = malloc(sizeof(Game));
-    new_game->id = ++list_increment_game_id;
-    new_game->id_player1 = client_id;
-    new_game->id_player2 = -1; // non esiste ancora
-    new_game->turn = 0;
-    new_game->state = ST_WAITING;
+    Game new_game;
+    new_game.id = ++list_increment_game_id;
+    new_game.id_player1 = client_id;
+    new_game.id_player2 = -1; // non esiste ancora
+    new_game.turn = 0;
+    new_game.state = ST_WAITING;
 
     // inizializzazione tabellone
     for (int r = 0; r < 3; r++)
     {
         for (int c = 0; c < 3; c++)
         {
-            new_game->table[r][c] = ' ';
+            new_game.table[r][c] = ' ';
         }
     }
 
     // inizializzazione del mutex
-    pthread_mutex_init(&new_game->game_mutex, NULL);
-    pthread_cond_init(&new_game->cond_approve, NULL);
+    pthread_mutex_init(&new_game.game_mutex, NULL);
+    pthread_cond_init(&new_game.cond_approve, NULL);
     return new_game;
 }
