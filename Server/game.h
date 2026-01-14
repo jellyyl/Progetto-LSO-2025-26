@@ -6,6 +6,7 @@
 // forward declaration per evitare include circolare
 typedef struct game_vector_t game_vector_t;
 
+
 //Azioni del giocatore
 typedef enum{
     CREATE = 1,
@@ -33,6 +34,7 @@ typedef struct Game{
     int turn; //0 player 1; 1 player 2;
     pthread_mutex_t game_mutex;
     pthread_cond_t cond_approve;
+    pthread_cond_t cond_wait_P1;
 } Game;
 
 extern game_vector_t game_vector;
@@ -43,5 +45,7 @@ void create_game(int client_id);
 Game generate_game(int client_id);
 void join_game(int client_id, int game_id, int sd);
 void approve_join_request(int game_id, int sd, int response);
+void init_game_session();
+void close_game_session();
 
 #endif

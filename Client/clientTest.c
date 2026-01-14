@@ -7,6 +7,8 @@
 // Definizioni coerenti con Actions in game.h
 #define CREATE 1
 #define LIST 2
+#define JOIN 3
+#define APPROVE 6
 #define EXIT 0
 
 #define SERVER_IP "127.0.0.1"
@@ -16,6 +18,7 @@ void print_menu() {
     printf("\n--- MENU TRIS INTERATTIVO ---\n");
     printf("1. Crea una nuova partita (CREATE)\n");
     printf("2. Visualizza lista partite (LIST)\n");
+    printf("3. Unisciti a una partita (JOIN)\n");
     printf("0. Esci\n");
     printf("Scelta: ");
 }
@@ -57,7 +60,42 @@ int main() {
 
         if (scelta == CREATE) {
             // Il server esegue create_game() ma non invia conferme
-            printf("Comando CREATE inviato. Controlla con LIST se la partita appare.\n");
+            printf("\n------------------------------------------------\n");
+            printf(" Partita creata! Sei in 'Sala d'Attesa'.\n");
+            printf(" Non toccare nulla finché non arriva uno sfidante.\n");
+            printf("------------------------------------------------\n");
+            //qui il client rimane in attesa di notifiche dal server
+
+            memset(buffer, 0, sizeof(buffer)); //pulisco il buffer
+            int n = recv(sd, buffer, sizeof(buffer) - 1, 0); 
+            printf("Ricevuto dal server: %d\n", n);
+            printf("Ricevuto dal server (buffer): %s\n", buffer);
+
+            //risveglio
+            if (n > 0 && strstr(buffer, "JOIN_REQUEST")) {
+                printf("\n>>> NOTIFICA: %s\n", buffer);
+                
+                int game_id, resp, game_action;
+                
+                memcpy(&game_id, buffer + 13, sizeof(int)); //estraggo game_id così perchè ho letto già con recv
+                printf("Un giocatore vuole unirsi alla tua partita (ID: %d).\n", game_id);
+                printf("Accetti la richiesta? (0 = Sì, 1 = No): ");
+
+                scanf("%d", &resp);
+                game_action = APPROVE;
+                send(sd, &game_action, sizeof(int), 0); //mando azione APPROVE
+                send(sd, &game_id, sizeof(int), 0); //mando la partita ricevuta
+                send(sd, &resp, sizeof(int), 0); //mando la risposta
+
+                memset(buffer, 0, sizeof(buffer));
+                recv(sd, buffer, sizeof(buffer) - 1, 0); //ricevo esito (START_PLAYER1 o CANCELLED)
+                printf("Stato partita: %s\n", buffer);
+                
+            }
+            else {
+                printf("Errore o connessione chiusa dal server.\n");
+            }
+
         } 
         else if (scelta == LIST) {
             printf("Richiedo la lista...\n");
@@ -72,7 +110,23 @@ int main() {
             } else {
                 printf("Nessuna partita attiva o errore di ricezione.\n");
             }
-        } 
+        } else if (scelta == JOIN) {
+            int game_id;
+            printf("Inserisci l'ID della partita a cui vuoi unirti: ");
+            scanf("%d", &game_id);
+
+            // 2. Invia l'ID della partita
+            send(sd, &game_id, sizeof(int), 0);
+
+            printf("Richiesta inviata. In attesa di approvazione dal Player 1...\n");
+
+            // 3. Il client si mette in ascolto della risposta (JOIN_OK o JOIN_DENIED)
+            memset(buffer, 0, sizeof(buffer));
+            int n = recv(sd, buffer, sizeof(buffer) - 1, 0);
+            if (n > 0) {
+                printf("Risposta server: %s\n", buffer);
+            }
+        }
         else {
             printf("Azione non valida.\n");
         }

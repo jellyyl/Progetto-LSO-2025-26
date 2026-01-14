@@ -23,6 +23,9 @@ Game* get_game_by_id(game_vector_t* game_v, int game_id);
 int remove_game_by_id(game_vector_t* game_v, int game_id);
 int remove_game(game_vector_t* game_v, int index);
 int resize(game_vector_t* game_v, int new_size);
+int find_index_by_game_id(game_vector_t* game_v, int game_id);
+void free_vector(Game** vector, int size);
+void free_vector_interval(Game** vector, int start, int end);
 
 
 #endif

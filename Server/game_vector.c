@@ -1,4 +1,6 @@
 #include "game_vector.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 
 void init_game_vector(game_vector_t* game_v){
