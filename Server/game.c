@@ -143,7 +143,7 @@ void join_game(int client_id, int game_id, int sd)
     send(p1_sd, "JOIN_REQUEST", 13, 0);
     send(p1_sd, &game_id, sizeof(int), 0);
     
-    pthread_mutex_unlock(&selected_game->game_mutex);
+
     
     // 2. Sveglia P1 
     pthread_cond_signal(&selected_game->cond_wait_P1);
@@ -152,7 +152,6 @@ void join_game(int client_id, int game_id, int sd)
         pthread_cond_wait(&selected_game->cond_approve, &selected_game->game_mutex);
     }
 
-    pthread_mutex_lock(&selected_game->game_mutex);
     // Una volta svegliato, il mutex è di nuovo bloccato qui.
     if (selected_game->state == ST_PLAYING) {
         send(sd, "JOIN_OK", 7, 0);
@@ -190,7 +189,7 @@ void approve_join_request(int game_id, int sd, int response)
             send(sd, "CANCELLED", 10, 0);
         }
 
-        //libera il thread del giocatore in attesa della risposta
+        //sveglio il thread di join_game
         pthread_cond_signal(&selected_game->cond_approve);
     }
 

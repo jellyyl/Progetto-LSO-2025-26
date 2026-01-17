@@ -64,7 +64,6 @@ int main() {
             printf(" Partita creata! Sei in 'Sala d'Attesa'.\n");
             printf(" Non toccare nulla finché non arriva uno sfidante.\n");
             printf("------------------------------------------------\n");
-            //qui il client rimane in attesa di notifiche dal server
 
             memset(buffer, 0, sizeof(buffer)); //pulisco il buffer
             int n = recv(sd, buffer, sizeof(buffer) - 1, 0); 
@@ -83,9 +82,9 @@ int main() {
 
                 scanf("%d", &resp);
                 game_action = APPROVE;
-                send(sd, &game_action, sizeof(int), 0); //mando azione APPROVE
-                send(sd, &game_id, sizeof(int), 0); //mando la partita ricevuta
-                send(sd, &resp, sizeof(int), 0); //mando la risposta
+                send(sd, &game_action, sizeof(int), 0); 
+                send(sd, &game_id, sizeof(int), 0); 
+                send(sd, &resp, sizeof(int), 0); 
 
                 memset(buffer, 0, sizeof(buffer));
                 recv(sd, buffer, sizeof(buffer) - 1, 0); //ricevo esito (START_PLAYER1 o CANCELLED)
@@ -115,14 +114,15 @@ int main() {
             printf("Inserisci l'ID della partita a cui vuoi unirti: ");
             scanf("%d", &game_id);
 
-            // 2. Invia l'ID della partita
+            //Invia l'ID della partita
             send(sd, &game_id, sizeof(int), 0);
 
             printf("Richiesta inviata. In attesa di approvazione dal Player 1...\n");
 
-            // 3. Il client si mette in ascolto della risposta (JOIN_OK o JOIN_DENIED)
+          
+            
             memset(buffer, 0, sizeof(buffer));
-            int n = recv(sd, buffer, sizeof(buffer) - 1, 0);
+            int n = recv(sd, buffer, sizeof(buffer) - 1, 0); 
             if (n > 0) {
                 printf("Risposta server: %s\n", buffer);
             }
