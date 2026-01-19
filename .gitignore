@@ -1,3 +1,5 @@
 .vscode/
 *.o
 *a.out
+__pycache__/
+*.pyc
