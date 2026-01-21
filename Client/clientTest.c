@@ -4,6 +4,12 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+// Operazioni dei giocatori
+#define CMD_PLAY 1
+#define CMD_WAIT 2
+#define CMD_OVER 3 //fine partita
+#define CMD_INVALID 4 //mossa non valida
+
 // Definizioni coerenti con Actions in game.h
 #define CREATE 1
 #define LIST 2
@@ -13,6 +19,56 @@
 
 #define SERVER_IP "127.0.0.1"
 #define PORT 5200
+
+void send_move(int sd, int game_id, int row, int col) {
+    int action = 4; // MOVE
+    send(sd, &action, sizeof(int), 0);
+    send(sd, &game_id, sizeof(int), 0);
+    send(sd, &row, sizeof(int), 0);
+    send(sd, &col, sizeof(int), 0);
+}
+
+void game(int sd, int game_id) {
+    int row, col;
+    char board_buffer[1024];
+    int command; 
+
+    printf("\n--- GIOCO INIZIATO ---\n");
+
+    while(1) {
+       
+        //lettura comando dal server
+        if (recv(sd, &command, sizeof(int), 0) <= 0) break;
+
+        memset(board_buffer, 0, sizeof(board_buffer));
+        if (recv(sd, board_buffer, sizeof(board_buffer)-1, 0) <= 0) break;
+
+        printf("%s\n", board_buffer);
+
+        if (command == CMD_OVER) {
+            printf("La partita è terminata. Torno al menu.\n");
+            break; 
+        }
+        else if (command == CMD_WAIT) {
+            printf("In attesa della mossa dell'avversario...\n");
+            continue; 
+        }
+        else if (command == CMD_PLAY) {
+
+            printf("È il tuo turno! Inserisci riga e colonna (es: 0 1): ");
+            scanf("%d %d", &row, &col);
+            send_move(sd, game_id, row, col);
+        }
+        else if (command == CMD_INVALID) {
+            printf("\n!!! ATTENZIONE: Mossa non valida o non è il tuo turno !!!\n");
+            printf("Riprova. Inserisci riga e colonna (es: 0 1): ");
+            scanf("%d %d", &row, &col);
+            send_move(sd, game_id, row, col);
+        }
+    }
+}
+
+
 
 void print_menu() {
     printf("\n--- MENU TRIS INTERATTIVO ---\n");
@@ -76,7 +132,8 @@ int main() {
                 
                 int game_id, resp, game_action;
                 
-                memcpy(&game_id, buffer + 13, sizeof(int)); //estraggo game_id così perchè ho letto già con recv
+                memcpy(&game_id, buffer + 13, sizeof(int)); //estraggo game_id
+                
                 printf("Un giocatore vuole unirsi alla tua partita (ID: %d).\n", game_id);
                 printf("Accetti la richiesta? (0 = Sì, 1 = No): ");
 
@@ -89,6 +146,10 @@ int main() {
                 memset(buffer, 0, sizeof(buffer));
                 recv(sd, buffer, sizeof(buffer) - 1, 0); //ricevo esito (START_PLAYER1 o CANCELLED)
                 printf("Stato partita: %s\n", buffer);
+                if (strstr(buffer, "START_PLAYER1")) {
+                    printf("La partita sta per iniziare!\n");
+                    game(sd, game_id);
+                }
                 
             }
             else {
@@ -125,7 +186,14 @@ int main() {
             int n = recv(sd, buffer, sizeof(buffer) - 1, 0); 
             if (n > 0) {
                 printf("Risposta server: %s\n", buffer);
+                if (strstr(buffer, "JOIN_OK")) {
+                    printf("La partita sta per iniziare!\n");
+                    game(sd, game_id);
+                } else {
+                    printf("Impossibile unirsi alla partita. Potrebbe essere stata cancellata o non trovata.\n");
+                }
             }
+            
         }
         else {
             printf("Azione non valida.\n");
@@ -136,3 +204,4 @@ int main() {
     printf("Client chiuso.\n");
     return 0;
 }
+

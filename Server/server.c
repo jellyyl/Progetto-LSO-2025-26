@@ -9,6 +9,11 @@ int start_server(int port, int backlog) {
 
     //creazione socket
     sd = socket(PF_INET, SOCK_STREAM, 0);
+    // Opzione per riutilizzare subito la porta dopo il riavvio
+    int reuse = 1;
+    if (setsockopt(sd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+        perror("Errore setsockopt (SO_REUSEADDR)");
+    }
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(port);
