@@ -44,7 +44,7 @@ def setup_style(root):
         "Header3.TButton",
         font=("Segoe UI", 10, "bold"),
         padding=8,
-        background="#ff4d4d",
+        background="#FF4D4D",
         foreground="white"
     )
 
@@ -72,19 +72,4 @@ def setup_style(root):
     style.configure(
         "Card.TButton",
         padding=6
-    )
-
-    # Bottone Invisibile (Cella Tris)
-    style.configure(
-        "Cell.TButton",
-        foreground="white",
-        background="#EAEAEA",
-        borderwidth=0,
-        focuscolor="white",
-        padding=0
-    )
-
-    style.map(
-        "Cell.TButton",
-        background=[("active", "#D0D0D0")]
     )
