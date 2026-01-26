@@ -17,6 +17,7 @@ percorso_icona = BASE_DIR / "assets" / "icon.ico"
 agg_var = None
 ms = 1000
 anim_id = None
+scroll_attivo = False
 
 def calcola_geometria(width, height):
     x = root.winfo_x() + (root.winfo_width() // 2) - (width // 2)
@@ -24,27 +25,59 @@ def calcola_geometria(width, height):
     return f"{width}x{height}+{x}+{y}"
 
 def aggiorna_partite(new_partite, on_connetti):
+        global label_nopartite, scroll_attivo
+        home_canvas.delete("all")
+        home_canvas.create_window((0,0), window=scroll_frame, anchor="nw")
         for widget in scroll_frame.winfo_children():
-            widget.destroy()
+            widget.destroy() 
 
+        if(len(new_partite) <= 0):
+            if(label_nopartite == None):
+                label_nopartite = tk.Label(
+                    home_canvas,
+                    text="Non ci sono partite disponibili",
+                    font=("Segoe UI", 11, "italic"),
+                    fg="#666666",
+                    justify="center"
+                )
+                label_nopartite.pack(expand=True)
+            ttk.Label(scroll_frame, text="", style="Card.TLabel") \
+                    .grid(row=0, column=0, sticky="w")
+        else:
+            if(label_nopartite != None):
+                label_nopartite.destroy()
+                label_nopartite = None
+            
         for part in new_partite:
-            card = ttk.Frame(scroll_frame, style="Card.TFrame", padding=8)
-            card.pack(fill="x", pady=6, padx=8)
+                card = ttk.Frame(scroll_frame, style="Card.TFrame", padding=8, width=500, height=60)
+                card.pack(fill="x", pady=6, padx=8)
 
-            info = f"ID: {part[0]}   |   {part[1]}   |   {part[2]}"
-            ttk.Label(card, text=info, style="Card.TLabel") \
-                .grid(row=0, column=0, sticky="w")
+                # Forza la dimensione fissa
+                card.pack_propagate(False)
 
-            ttk.Button(
-                card,
-                text="Connetti",
-                style="Card.TButton",
-                command=lambda p=part: on_connetti(p)
-            ).grid(row=0, column=1, padx=10)
+                info = f"ID: {part[0]}   |   {part[1]}   |   {part[2]}"
+                ttk.Label(card, text=info, style="Card.TLabel") \
+                    .grid(row=0, column=0, sticky="w")
 
-            card.columnconfigure(0, weight=1)
+                ttk.Button(
+                    card,
+                    text="Connetti",
+                    style="Card.TButton",
+                    command=lambda p=part: on_connetti(p)
+                ).grid(row=0, column=1, padx=10)
+
+                card.columnconfigure(0, weight=1)
 
         home_canvas.update_idletasks()
+
+        canvas_height = home_canvas.winfo_height()
+        content_height = home_canvas.bbox("all")[3] if home_canvas.bbox("all") else 0
+        scroll_attivo = content_height > canvas_height
+        if scroll_attivo:
+            scrollbar.configure(command=home_canvas.yview)
+        else:
+            scrollbar.configure(command=lambda *args: None)
+                
         home_canvas.configure(scrollregion=home_canvas.bbox("all"))
 
 def imposta_aggiornamento(funz_periodica, millisecondi):
@@ -94,8 +127,9 @@ def mostra_home(partite_in, on_crea_partita, on_connetti, on_esci, on_focus, on_
     container = ttk.Frame(root)
     container.pack(fill="both", expand=True)
 
-    global home_canvas
+    global home_canvas, label_nopartite, scrollbar
     home_canvas = tk.Canvas(container, highlightthickness=0)
+    label_nopartite = None
     scrollbar = ttk.Scrollbar(container, orient="vertical", command=home_canvas.yview)
     
     global scroll_frame
@@ -113,6 +147,8 @@ def mostra_home(partite_in, on_crea_partita, on_connetti, on_esci, on_focus, on_
     scrollbar.pack(side="right", fill="y")
 
     def _on_mousewheel(event):
+        if not scroll_attivo:
+            return
         if event.delta:
             home_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
         elif event.num == 4:
@@ -266,7 +302,7 @@ def riempi_cella_partita(giocatore, r, c):
     x = c * 101.6 + 100 // 2
     y = r * 101.6 + 100 // 2
     tris_canvas.create_image(x, y, image = img_x if giocatore==1 else img_o)
-    tris_canvas.itemconfig(r*3 + c+1, state="disabled")
+    tris_canvas.itemconfig(r*3 + c+1, state="disabled", tags=(1))
 
 def aggiorna_label_partita(testo, colore_sfondo, waiting):
     global label_turno, panel_turno, anim_id
@@ -286,6 +322,15 @@ def aggiorna_label_partita(testo, colore_sfondo, waiting):
             label_turno.configure(text=testo + "." * n_puntini)
             anim_id = root.after(500, animazione_puntini)
         animazione_puntini()
+
+def disabilita_griglia_partita():
+    for i in range(1, 9):
+        tris_canvas.itemconfig(i, state="disabled")
+
+def abilita_griglia_partita():
+    for i in range(1, 9):
+        if(tris_canvas.gettags(i)[0] == "0"):
+            tris_canvas.itemconfig(i, state="normal")
 
 def mostra_partita(giocatore, on_click_cella): # Giocatore = 1: gioca X, Giocatore = 2: gioca O
     partita = tk.Toplevel(root)
@@ -326,7 +371,8 @@ def mostra_partita(giocatore, on_click_cella): # Giocatore = 1: gioca X, Giocato
             rect = tris_canvas.create_rectangle(
                 x1, y1, x2, y2,
                 outline="",
-                fill="#F0F0F0"      # grigio = #C4C4C4 grigio scuro = B3B3B3
+                fill="#F0F0F0",      # grigio = #C4C4C4 grigio scuro = B3B3B3
+                tags=(0)    # 0 = cella libera, 1 = cella occupata
             )
 
             tris_canvas.tag_bind(rect, "<Enter>", lambda e, r=rect: tris_canvas.itemconfig(r, fill="#D0D0D0"))

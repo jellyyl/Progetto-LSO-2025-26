@@ -21,7 +21,6 @@ def on_crea_partita():
         
 
 def on_connetti(partita):
-
     finestra_attesa = gui.interface.mostra_attesa("In attesa di conferma")
     # (Manda messaggio all'host della partita e aspetta una risposta)
     #gui.interface.nascondi_finestra(finestra_attesa)
