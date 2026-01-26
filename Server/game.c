@@ -305,6 +305,9 @@ void broadcast_game_state(Game *game, int check_error) {
             send(game->id_player2, &cmd_p2, sizeof(int), 0);
             send_board_with_message(game->id_player2, game, msg_p2);
         }
+
+        game_over(game->id);
+
         return; 
     }
 
@@ -371,7 +374,7 @@ void move(int game_id, int sd)
 
     int status = check_winner(selected_game);
     if (status != -1) { 
-        selected_game->state = ST_FINISHED;
+        selected_game->state = ST_FINISHED;        
     }
 
     //invia aggiornamento stato a entrambi i giocatori
@@ -399,4 +402,11 @@ Game generate_game(int client_id)
     pthread_cond_init(&new_game.cond_approve, NULL);
     pthread_cond_init(&new_game.cond_wait_P1, NULL);
     return new_game;
+}
+
+
+int game_over(int game_id){
+
+    return remove_game_by_id(&game_vector, game_id);
+
 }

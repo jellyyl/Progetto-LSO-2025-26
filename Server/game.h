@@ -47,5 +47,6 @@ void join_game(int client_id, int game_id, int sd);
 void approve_join_request(int game_id, int sd, int response);
 void init_game_session();
 void close_game_session();
+int game_over(int);
 
 #endif
