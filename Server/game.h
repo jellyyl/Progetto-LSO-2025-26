@@ -35,6 +35,8 @@ typedef struct Game{
     pthread_mutex_t game_mutex;
     pthread_cond_t cond_approve;
     pthread_cond_t cond_wait_P1;
+    int rematch_status_player1; // 0 = no, 1 = yes
+    int rematch_status_player2; // 0 = no, 1 = yes
 } Game;
 
 extern game_vector_t game_vector;
@@ -47,6 +49,14 @@ void join_game(int client_id, int game_id, int sd);
 void approve_join_request(int game_id, int sd, int response);
 void init_game_session();
 void close_game_session();
-int game_over(int);
+int game_over(Game* game, int winner_sd);
+int change_owner_game(Game* game);
+int ask_rematch(Game* game, int winner_sd);
+int rematch_from_both(Game* game, int sd, int response);
+int rematch_by_winner(Game* game, int sd, int response);
+int do_rematch(int game_id, int sd);
+int clear_game(Game *game);
+
+
 
 #endif

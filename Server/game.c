@@ -62,8 +62,14 @@ void game_action(void *arg)
             move(game_id, sd);
             break;
         }
-        case REMATCH:
+        case REMATCH: 
+        {
+            int game_id;
+            if (recv(sd, &game_id, sizeof(int), 0) <= 0) 
+                break; 
+            do_rematch(game_id, sd);
             break;
+        }
         case APPROVE:
         {
             int game_id, response;
@@ -187,7 +193,7 @@ void approve_join_request(int game_id, int sd, int response)
         { 
             selected_game->state = ST_PLAYING;
             send(sd, "START_PLAYER1", 14, 0);
-            usleep(100000);
+            usleep(100000); 
             // Inizializzazione Manuale P1 
             int cmd = CMD_PLAY; 
             send(sd, &cmd, sizeof(int), 0);
@@ -279,6 +285,7 @@ void broadcast_game_state(Game *game, int check_error) {
 
     //partita finita
     if (game->state == ST_FINISHED) {
+
         cmd_p1 = CMD_OVER;
         cmd_p2 = CMD_OVER;
 
@@ -290,23 +297,23 @@ void broadcast_game_state(Game *game, int check_error) {
             sprintf(msg_p1, "--- NON CI CREDO FUNZIONA ANCHE IL PAREGGIO ---");
             sprintf(msg_p2, "--- NON CI CREDO FUNZIONA ANCHE IL PAREGGIO ---");
         } else if (winner == game->id_player1) {
-            sprintf(msg_p1, "🏆 Complimenti gennaro de luca ha finito il game del tris 🏆");
+            sprintf(msg_p1, "🏆 Complimenti il giocatore proprietario ha vinto 🏆");
             sprintf(msg_p2, "💀 PAR O' CAZZ  💀");
         } else {
             sprintf(msg_p1, "💀 PAR O' CAZZ 💀");
-            sprintf(msg_p2, "🏆 Complimenti gennaro de luca ha finito il game del tris 🏆");
+            sprintf(msg_p2, "🏆 Complimenti il giocatore ospite ha vinto 🏆");
+            
         }
 
         // Usa send_board_with_message per inviare tabellone + testo
-        send(game->id_player1, &cmd_p1, sizeof(int), 0);
+
         send_board_with_message(game->id_player1, game, msg_p1);
+        send(game->id_player1, &cmd_p1, sizeof(int), 0);
 
         if (game->id_player2 != -1) {
-            send(game->id_player2, &cmd_p2, sizeof(int), 0);
             send_board_with_message(game->id_player2, game, msg_p2);
+            send(game->id_player2, &cmd_p2, sizeof(int), 0);
         }
-
-        game_over(game->id);
 
         return; 
     }
@@ -380,8 +387,134 @@ void move(int game_id, int sd)
     //invia aggiornamento stato a entrambi i giocatori
     broadcast_game_state(selected_game, 0);
 
+    if(status != -1) {
+        game_over(selected_game, status);
+    }
+
     pthread_mutex_unlock(&selected_game->game_mutex);
 }
+
+
+int do_rematch(int game_id, int sd){
+
+    Game* selected_game = get_game_by_id(&game_vector, game_id);
+    int response, cmd_message;
+    
+
+    if(!selected_game){
+        send(sd, "REMATCH_ERR_NOT_FOUND", 21, 0);
+        return -1;
+    }
+
+    if(selected_game->id_player1 != sd && selected_game->id_player2 != sd){
+        send(sd, "REMATCH_ERR_NOT_PLAYER", 22, 0);
+        return -1;
+    }
+
+    if(selected_game->state != ST_FINISHED){
+        send(sd, "REMATCH_ERR_NOT_FINISHED", 24, 0);
+        return -1;
+    }
+
+    recv(sd, &response, sizeof(int), 0);
+
+
+    //significa che c'è stato un vincitore
+    if(selected_game->id_player2 == -1){
+        rematch_by_winner(selected_game, sd, response);
+        return 0;
+    } else { // pareggio
+        rematch_from_both(selected_game, sd, response);
+        return 0;
+    }
+}
+
+int rematch_by_winner(Game* game, int sd, int response){
+
+    int cmd_message;
+
+    if(game->id_player1 != sd){
+        send(sd, "REMATCH_ERR_NOT_OWNER", 21, 0);
+        return -1;
+    }
+
+    if(response != 1) {
+        cmd_message = CMD_OVER;
+        send(sd, &cmd_message, sizeof(int), 0);
+        return 0;
+    }
+
+    pthread_mutex_lock(&game->game_mutex);
+
+    clear_game(game);
+
+    printf("Player 1 (ID %d) bloccato in attesa di sfidanti...\n", sd);
+    while (game->state == ST_WAITING) {
+        pthread_cond_wait(&game->cond_wait_P1, &game->game_mutex);
+    }
+    pthread_mutex_unlock(&game->game_mutex);
+
+    return 0;
+
+}
+
+int rematch_from_both( Game* game, int sd, int response){
+    
+    pthread_mutex_lock(&game->game_mutex);
+    int cmd_p1, cmd_p2;
+
+    if(sd == game->id_player1){
+        game->rematch_status_player1 = response;
+
+    } else if (sd == game->id_player2){
+        game->rematch_status_player2 = response;
+    }
+
+    pthread_cond_broadcast(&game->cond_approve);
+
+    while (game->rematch_status_player1 == -1 || game->rematch_status_player2 == -1) {
+        pthread_cond_wait(&game->cond_approve, &game->game_mutex); //aspetta e sblocca il mutex "mentre dorme"
+
+        //se uno dei due ha rifiutato
+        if(game->rematch_status_player1 == 0 || game->rematch_status_player2 == 0){
+
+            cmd_p1 = CMD_OVER;
+            cmd_p2 = CMD_OVER;
+
+            send(game->id_player1, &cmd_p1, sizeof(int), 0);
+            send(game->id_player2, &cmd_p2, sizeof(int), 0);
+
+            pthread_mutex_unlock(&game->game_mutex);
+            return -1;
+        }
+  
+    }
+
+    clear_game(game);
+    game->state = ST_PLAYING;
+
+    if(game->id_player1 == sd){
+        send(sd, "START_PLAYER1", 14, 0);
+        usleep(100000); 
+        // Inizializzazione Manuale P1 
+        int cmd_p1 = CMD_PLAY; 
+        send(sd, &cmd_p1, sizeof(int), 0);
+        send_board_to_socket(sd, game);
+    } else if (game->id_player2 == sd){
+        send(sd, "START_PLAYER2", 14, 0);
+        usleep(100000); 
+        // Inizializzazione Manuale P2 
+        int cmd_p2 = CMD_WAIT; 
+        send(sd, &cmd_p2, sizeof(int), 0);
+        send_board_to_socket(sd, game);
+    }
+
+    pthread_mutex_unlock(&game->game_mutex);
+
+    return 0;
+
+}
+
 
 Game generate_game(int client_id)
 {
@@ -405,8 +538,72 @@ Game generate_game(int client_id)
 }
 
 
-int game_over(int game_id){
+int game_over(Game* game, int winner_sd){
 
-    return remove_game_by_id(&game_vector, game_id);
+    if(!game){
+        return -1;
+    }
 
+    //se il vincitore non è il giocatore 1, cambia il proprietario
+    if(winner_sd == game->id_player2){
+        change_owner_game(game);
+        game->id_player2 = -1;
+        send(game->id_player1, "CHANGE_OWNER", strlen("CHANGE_OWNER"), 0);
+    } else if(winner_sd == game->id_player1){
+        game->id_player2 = -1; 
+    }
+    
+    clear_game(game);
+
+    usleep(50000);
+
+    ask_rematch(game, winner_sd);
+
+}
+
+int change_owner_game(Game* game){
+
+    int tempSd = game->id_player1;
+    game->id_player1 = game->id_player2;
+    game->id_player2 = tempSd;
+    return 0;
+}
+
+int ask_rematch(Game* game, int winner_sd){
+
+    if(!game){
+        return -1;
+    }
+
+    char msg[100];
+    sprintf(msg, "REMATCH_REQUEST");
+
+    if(winner_sd == 0){
+        send(game->id_player1, &msg, strlen(msg), 0);
+        send(game->id_player2, &msg, strlen(msg), 0);
+    } else { //lo mando solo al proprietario (ossia il vincitore)
+        send(game->id_player1, &msg, strlen(msg), 0);
+    } 
+
+    return 0;
+}
+
+int clear_game(Game *game){
+
+    if(!game){
+        return -1;
+    }
+
+    game->state = ST_WAITING;
+    game->turn = 0;
+    game->rematch_status_player1 = -1;
+    game->rematch_status_player2 = -1;
+
+    for (int r = 0; r < 3; r++) {
+        for (int c = 0; c < 3; c++) {
+            game->table[r][c] = ' ';
+        }
+    }
+
+    return 0;
 }
