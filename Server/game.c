@@ -306,13 +306,13 @@ void broadcast_game_state(Game *game, int check_error) {
         }
 
         // Usa send_board_with_message per inviare tabellone + testo
-
-        send_board_with_message(game->id_player1, game, msg_p1);
         send(game->id_player1, &cmd_p1, sizeof(int), 0);
+        send_board_with_message(game->id_player1, game, msg_p1);
+        
 
         if (game->id_player2 != -1) {
-            send_board_with_message(game->id_player2, game, msg_p2);
             send(game->id_player2, &cmd_p2, sizeof(int), 0);
+            send_board_with_message(game->id_player2, game, msg_p2);
         }
 
         return; 
@@ -403,16 +403,19 @@ int do_rematch(int game_id, int sd){
 
     if(!selected_game){
         send(sd, "REMATCH_ERR_NOT_FOUND", 21, 0);
+        printf("Rematch: partita non trovata (ID %d)\n", game_id);
         return -1;
     }
 
     if(selected_game->id_player1 != sd && selected_game->id_player2 != sd){
         send(sd, "REMATCH_ERR_NOT_PLAYER", 22, 0);
+        printf("Rematch: giocatore non nella partita (ID %d)\n", game_id);
         return -1;
     }
 
     if(selected_game->state != ST_FINISHED){
         send(sd, "REMATCH_ERR_NOT_FINISHED", 24, 0);
+        printf("Rematch: partita non finita (ID %d)\n", game_id);
         return -1;
     }
 
@@ -465,34 +468,45 @@ int rematch_from_both( Game* game, int sd, int response){
 
     if(sd == game->id_player1){
         game->rematch_status_player1 = response;
+        if(response == 0) {
+            send(game->id_player2, "REMATCH_DECLINED", 16, 0);
+        }
 
     } else if (sd == game->id_player2){
         game->rematch_status_player2 = response;
+        if(response == 0) {
+            send(game->id_player1, "REMATCH_DECLINED", 16, 0);
+        }
+    }
+
+    if(response == 0){
+        pthread_mutex_unlock(&game->game_mutex);
+        pthread_cond_broadcast(&game->cond_approve);
+        return 0;
     }
 
     pthread_cond_broadcast(&game->cond_approve);
 
-    while (game->rematch_status_player1 == -1 || game->rematch_status_player2 == -1) {
+    // il primo che si libera, pulisce il game e i status tornano a -1, è necessario quindi mettere la terza condizione nel while
+    while ((game->rematch_status_player1 == -1 || game->rematch_status_player2 == -1) && game->state != ST_PLAYING) {
         pthread_cond_wait(&game->cond_approve, &game->game_mutex); //aspetta e sblocca il mutex "mentre dorme"
 
         //se uno dei due ha rifiutato
         if(game->rematch_status_player1 == 0 || game->rematch_status_player2 == 0){
-
-            cmd_p1 = CMD_OVER;
-            cmd_p2 = CMD_OVER;
-
-            send(game->id_player1, &cmd_p1, sizeof(int), 0);
-            send(game->id_player2, &cmd_p2, sizeof(int), 0);
 
             pthread_mutex_unlock(&game->game_mutex);
             return -1;
         }
   
     }
+    printf("Entrambi i giocatori hanno accettato la rivincita per la partita %d!\n", game->id);
 
-    clear_game(game);
-    game->state = ST_PLAYING;
-
+    if (game->state != ST_PLAYING) {
+        printf("Entrambi i giocatori hanno accettato la rivincita per la partita %d!\n", game->id);
+        clear_game(game);          // Attenzione: questo resetta i flag a -1
+        game->state = ST_PLAYING;  
+    }
+    
     if(game->id_player1 == sd){
         send(sd, "START_PLAYER1", 14, 0);
         usleep(100000); 
@@ -524,6 +538,8 @@ Game generate_game(int client_id)
     new_game.id_player2 = -1; 
     new_game.turn = 0;
     new_game.state = ST_WAITING;
+    new_game.rematch_status_player1 = -1;
+    new_game.rematch_status_player2 = -1;   
 
     for (int r = 0; r < 3; r++) {
         for (int c = 0; c < 3; c++) {
@@ -553,7 +569,6 @@ int game_over(Game* game, int winner_sd){
         game->id_player2 = -1; 
     }
     
-    clear_game(game);
 
     usleep(50000);
 

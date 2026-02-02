@@ -3,247 +3,291 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-
-#define CMD_PLAY 1
-#define CMD_WAIT 2
-#define CMD_OVER 3 
-#define CMD_INVALID 4 
-
-#define CREATE 1
-#define LIST 2
-#define JOIN 3
-#define MOVE 4
-#define REMATCH 5   
-#define APPROVE 6
-#define EXIT 0
+#include <sys/socket.h>
 
 #define SERVER_IP "127.0.0.1"
 #define PORT 5200
 
+// --- PROTOCOLLO AZIONI ---
+typedef enum {
+    CREATE = 1,
+    LIST = 2,
+    JOIN = 3,
+    MOVE = 4,
+    REMATCH = 5,
+    APPROVE = 6
+} Action;
+
+// --- PROTOCOLLO SERVER ---
+#define CMD_PLAY 1
+#define CMD_WAIT 2
+#define CMD_OVER 3
+#define CMD_INVALID 4
+
+// Prototipi
 void game_loop(int sd, int game_id);
-int wait_for_challenger(int sd);
-void clear_input();
-
-void send_move(int sd, int game_id, int row, int col) {
-    int action = MOVE; 
-    send(sd, &action, sizeof(int), 0);
-    send(sd, &game_id, sizeof(int), 0);
-    send(sd, &row, sizeof(int), 0);
-    send(sd, &col, sizeof(int), 0);
-}
-
-void clear_input() {
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF);
-}
-
-// Funzione per attendere uno sfidante (usata in CREATE e REMATCH VINCITORE)
-int wait_for_challenger(int sd) {
-    char buffer[4096];
-    printf("\nIn attesa di sfidanti...\n");
-    
-    memset(buffer, 0, sizeof(buffer));
-    int n = recv(sd, buffer, sizeof(buffer) - 1, 0); 
-    
-    if (n > 0 && strstr(buffer, "JOIN_REQUEST")) {
-        int game_id, resp, action = APPROVE;
-        memcpy(&game_id, buffer + 13, sizeof(int));
-        
-        printf("\n>>> SFIDA RICEVUTA (Partita %d). Accetti? (0=Si, 1=No): ", game_id);
-        if(scanf("%d", &resp) != 1) resp = 1;
-        clear_input();
-        
-        send(sd, &action, sizeof(int), 0); 
-        send(sd, &game_id, sizeof(int), 0); 
-        send(sd, &resp, sizeof(int), 0); 
-
-        if (resp != 0) {
-            printf("Sfida rifiutata.\n");
-            return -1;
-        }
-
-        memset(buffer, 0, sizeof(buffer));
-        recv(sd, buffer, sizeof(buffer) - 1, 0); 
-        
-        if (strstr(buffer, "START_PLAYER1")) {
-            return game_id; 
-        }
-    }
-    return -1;
-}
-
-void game_loop(int sd, int game_id) {
-    int row, col, command;
-    char buffer[4096]; 
-
-    printf("\n--- PARTITA INIZIATA (ID: %d) ---\n", game_id);
-
-    while(1) {
-        // 1. Ricezione comando
-        if (recv(sd, &command, sizeof(int), 0) <= 0) break;
-
-        // 2. Ricezione tabellone/messaggio
-        memset(buffer, 0, sizeof(buffer));
-        if (recv(sd, buffer, sizeof(buffer)-1, 0) <= 0) break;
-
-        printf("%s\n", buffer);
-
-        if (command == CMD_OVER) {
-            printf("\n--- PARTITA CONCLUSA ---\n");
-
-            // Se hai perso (controlla il messaggio specifico definito nel server)
-            if (strstr(buffer, "PAR O' CAZZ")) {
-                printf("Hai perso. Premi INVIO per tornare al menu...");
-                getchar(); clear_input();
-                return; 
-            }
-
-            // GESTIONE RIVINCITA (Vittoria o Pareggio)
-            // Controlla se la richiesta di rematch è arrivata attaccata al messaggio precedente
-            // o se deve essere letta ora.
-            if (!strstr(buffer, "REMATCH_REQUEST")) {
-                memset(buffer, 0, sizeof(buffer));
-                // Legge la stringa pura inviata da ask_rematch
-                recv(sd, buffer, sizeof(buffer)-1, 0);
-            }
-
-            if (strstr(buffer, "REMATCH_REQUEST")) {
-                int choice, action = REMATCH;
-                printf("\n>>> VUOI UNA RIVINCITA? (1 = SI, 0 = NO): ");
-                if (scanf("%d", &choice) != 1) choice = 0;
-                clear_input();
-
-                send(sd, &action, sizeof(int), 0);
-                send(sd, &game_id, sizeof(int), 0);
-                send(sd, &choice, sizeof(int), 0);
-
-                if (choice == 1) {
-                    printf("Hai accettato. In attesa...\n");
-
-                    // Caso Pareggio: aspettiamo START o CMD_OVER (se l'altro rifiuta)
-                    // Caso Vittoria: il server ci resetta e ci mette in wait (come create)
-                    
-                    // Proviamo a leggere cosa succede
-                    memset(buffer, 0, sizeof(buffer));
-                    int n = recv(sd, buffer, sizeof(buffer)-1, 0);
-
-                    // Se arriva un comando numerico CMD_OVER (l'altro ha rifiutato)
-                    // Nota: recv legge byte. Se il server manda un int, i primi 4 byte sono l'int.
-                    // Qui facciamo una lettura "generica" per capire.
-                    
-                    if (n == 4) { // Probabile comando int (es. l'altro ha rifiutato)
-                        int cmd_check;
-                        memcpy(&cmd_check, buffer, 4);
-                        if (cmd_check == CMD_OVER) {
-                            printf("L'avversario ha rifiutato la rivincita.\n");
-                            return;
-                        }
-                    }
-
-                    if (n > 0) {
-                        if (strstr(buffer, "START_PLAYER")) {
-                            printf("Rivincita iniziata! Si riparte.\n");
-                            continue; // Riparte il loop
-                        } 
-                        // Se siamo il vincitore, il server ci ha messo in wait per JOIN_REQUEST
-                        // ma attenzione: ask_rematch chiama clear_game e poi wait.
-                        // Il client deve gestire l'attesa.
-                        // Dato che il protocollo del server è complesso (vincitore diventa host),
-                        // la soluzione più semplice lato client per il vincitore è tornare in wait_for_challenger
-                        // SE il server non manda subito START.
-                        
-                        // Per semplicità nel codice server attuale:
-                        // Se pareggio -> Entrambi ricevono START
-                        // Se vittoria -> Vincitore diventa Host e aspetta (JOIN_REQUEST).
-                    }
-                    
-                    // Se non abbiamo ricevuto START immediato, probabilmente siamo in attesa (Vincitore)
-                    int new_id = wait_for_challenger(sd);
-                    if (new_id != -1) {
-                         game_id = new_id;
-                         continue;
-                    }
-                }
-                return;
-            }
-            return;
-        }
-        else if (command == CMD_PLAY || command == CMD_INVALID) {
-            if (command == CMD_INVALID) printf("[!] MOSSA NON VALIDA! ");
-            
-            printf("Tocca a te (riga colonna): ");
-            if (scanf("%d %d", &row, &col) != 2) {
-                clear_input();
-            } else {
-                send_move(sd, game_id, row, col);
-            }
-        }
-        else if (command == CMD_WAIT) {
-            printf("In attesa dell'avversario...\n");
-        }
-    }
-}
-
-void print_menu() {
-    printf("\n========= TRIS MENU ========\n");
-    printf("1. Crea nuova partita\n");
-    printf("2. Lista partite attive\n");
-    printf("3. Unisciti a una partita\n");
-    printf("0. Esci\n");
-    printf("============================\n");
-    printf("Scelta: ");
-}
+void wait_for_challenger(int sd); // Nuova funzione per gestire l'attesa
+void handle_creation(int sd);
+void handle_join(int sd);
+void handle_list(int sd);
+int gestisci_rematch(int sd, int game_id, int is_draw, int *became_owner);
 
 int main() {
     int sd;
     struct sockaddr_in server_addr;
-    int scelta;
-    char buffer[4096];
 
     sd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sd < 0) { perror("Socket"); exit(1); }
+
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
-    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr);
+    server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
 
     if (connect(sd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Connessione fallita");
-        return 1;
+        perror("Connect"); exit(1);
     }
-    printf("Connesso al server.\n");
+
+    printf("--- CLIENT TRIS CONNESSO ---\n");
 
     while (1) {
-        print_menu();
-        if (scanf("%d", &scelta) != 1) {
-            clear_input();
-            continue;
-        }
-        if (scelta == EXIT) break;
-        send(sd, &scelta, sizeof(int), 0);
+        printf("\n--- MENU ---\n1. Crea partita\n2. Lista partite\n3. Unisciti\n0. Esci\nScelta: ");
+        int choice;
+        if (scanf("%d", &choice) != 1) break;
 
-        if (scelta == CREATE) {
-            int started_game_id = wait_for_challenger(sd);
-            if (started_game_id != -1) game_loop(sd, started_game_id);
-        } 
-        else if (scelta == LIST) {
-            memset(buffer, 0, sizeof(buffer));
-            recv(sd, buffer, sizeof(buffer) - 1, 0);
-            printf("\n%s", buffer);
-        } 
-        else if (scelta == JOIN) {
-            int game_id;
-            printf("Inserisci ID Partita: ");
-            scanf("%d", &game_id);
-            send(sd, &game_id, sizeof(int), 0);
-            printf("In attesa...\n");
-            
-            memset(buffer, 0, sizeof(buffer));
-            if (recv(sd, buffer, sizeof(buffer) - 1, 0) > 0 && strstr(buffer, "JOIN_OK")) {
-                game_loop(sd, game_id);
-            } else {
-                printf("Rifiutato o errore.\n");
-            }
+        switch (choice) {
+            case 1: handle_creation(sd); break;
+            case 2: handle_list(sd); break;
+            case 3: handle_join(sd); break;
+            case 0: close(sd); exit(0);
+            default: printf("Scelta non valida.\n");
         }
     }
-    close(sd);
     return 0;
+}
+
+// Funzione che gestisce l'attesa di un avversario (Usata in creazione e in rivincita da vincitore)
+void wait_for_challenger(int sd) {
+    char buffer[128];
+    printf(">> In attesa di uno sfidante...\n");
+
+    // Il server invia "JOIN_REQUEST" + game_id (17 bytes tot)
+    memset(buffer, 0, sizeof(buffer));
+    int bytes = recv(sd, buffer, 17, 0); 
+    
+    if (bytes <= 0) return;
+
+    if (strncmp(buffer, "JOIN_REQUEST", 12) == 0) {
+        int req_game_id;
+        memcpy(&req_game_id, buffer + 13, sizeof(int));
+        
+        printf("\n[!] Un giocatore vuole unirsi alla partita %d.\n", req_game_id);
+        printf("Accettare? (0: Si, 1: No): ");
+        int response;
+        scanf("%d", &response);
+
+        // Invio APPROVE
+        int act = APPROVE;
+        send(sd, &act, sizeof(int), 0);
+        send(sd, &req_game_id, sizeof(int), 0);
+        send(sd, &response, sizeof(int), 0);
+
+        if (response == 0) {
+            // Consuma messaggio START_PLAYER1
+            char start_msg[32];
+            memset(start_msg, 0, sizeof(start_msg));
+            recv(sd, start_msg, sizeof(start_msg), 0); // "START_PLAYER1"
+            
+            // Avvia il loop di gioco
+            game_loop(sd, req_game_id);
+        } else {
+            printf("Hai rifiutato. Torni al menu.\n");
+        }
+    } else {
+        printf("Messaggio imprevisto durante l'attesa: %s\n", buffer);
+    }
+}
+
+void game_loop(int sd, int game_id) {
+    int cmd;
+    char buffer[2048];
+
+    printf("\n--- PARTITA INIZIATA (ID: %d) ---\n", game_id);
+
+    while (1) {
+        // Legge comando intero (4 bytes)
+        if (recv(sd, &cmd, sizeof(int), 0) <= 0) break;
+
+        memset(buffer, 0, sizeof(buffer));
+
+        switch (cmd) {
+            case CMD_PLAY:
+                recv(sd, buffer, sizeof(buffer) - 1, 0); // Legge tabellone
+                printf("\n%s\n>> IL TUO TURNO (riga colonna): ", buffer);
+                int r, c;
+                scanf("%d %d", &r, &c);
+                int action = MOVE;
+                send(sd, &action, sizeof(int), 0);
+                send(sd, &game_id, sizeof(int), 0);
+                send(sd, &r, sizeof(int), 0);
+                send(sd, &c, sizeof(int), 0);
+                break;
+
+            case CMD_WAIT:
+                recv(sd, buffer, sizeof(buffer) - 1, 0); // Legge tabellone
+                printf("\n%s\n>> In attesa dell'avversario...\n", buffer);
+                break;
+
+            case CMD_INVALID:
+                printf(">> Mossa non valida!\n");
+                break;
+
+            case CMD_OVER:
+                recv(sd, buffer, sizeof(buffer) - 1, 0);
+                printf("\n%s\n", buffer);
+
+                int is_draw = (strstr(buffer, "PAREGGIO") != NULL);
+                int is_loser = (strstr(buffer, "PAR O' CAZZ") != NULL);
+
+                if (is_loser) {
+                    printf(">>> HAI PERSO. Game Over.\n");
+                    return; 
+                }
+
+                // Gestione Rematch per Vincitore o Pareggio
+                int became_owner = 0;
+                int rematch_ok = gestisci_rematch(sd, game_id, is_draw, &became_owner);
+
+                if (rematch_ok == 1) {
+                    if (is_draw) {
+                        continue;
+                    } else {
+                        // Se ho vinto (o sono diventato proprietario), devo attendere un nuovo sfidante
+                        // Esco da game_loop ed entro in wait_for_challenger
+                        printf(">>> In attesa di un nuovo sfidante nel server...\n");
+                        wait_for_challenger(sd);
+                        return; // Esco da questa istanza di game_loop, ne verrà lanciata una nuova da wait_for_challenger
+                    }
+                } else {
+                    printf(">>> Partita terminata.\n");
+                    return;
+                }
+                break;
+
+            default:
+                // Se arriva spazzatura, puliamo il buffer per evitare loop infiniti
+                printf("Comando ignoto (%d). Pulizia buffer...\n", cmd);
+                recv(sd, buffer, sizeof(buffer), MSG_DONTWAIT);
+                break;
+        }
+    }
+}
+
+// Ritorna 1 se si continua, 0 se si esce
+int gestisci_rematch(int sd, int game_id, int is_draw, int *became_owner) {
+    char msg[128];
+    memset(msg, 0, sizeof(msg));
+
+    // 1. Controlla messaggi preliminari (Vittoria/Cambio Proprietario)
+    // Usiamo MSG_DONTWAIT o un timeout se volessimo essere non bloccanti, 
+    // ma qui ci aspettiamo messaggi precisi.
+    if (recv(sd, msg, sizeof(msg) - 1, 0) <= 0) return 0;
+
+    // Se eri ospite e hai vinto, il server ti notifica il cambio ruolo
+    if (strstr(msg, "CHANGE_OWNER") != NULL) {
+        printf("[INFO] Sei diventato il PROPRIETARIO della partita!\n");
+        *became_owner = 1;
+        // Pulisci e leggi il prossimo messaggio (che sarà REMATCH_REQUEST)
+        memset(msg, 0, sizeof(msg));
+        recv(sd, msg, sizeof(msg) - 1, 0);
+    }
+
+    // 2. Gestione Richiesta Utente
+    if (strstr(msg, "REMATCH_REQUEST") != NULL) {
+        int response;
+        if (is_draw) printf("\n[PAREGGIO] Rigiocare con lo stesso avversario? (1:Si, 0:No): ");
+        else printf("\n[VITTORIA] Vuoi sfidare un nuovo giocatore? (1:Si, 0:No): ");
+        
+        scanf("%d", &response);
+
+        // Invia risposta al server
+        int action = REMATCH;
+        send(sd, &action, sizeof(int), 0);
+        send(sd, &game_id, sizeof(int), 0);
+        send(sd, &response, sizeof(int), 0);
+
+        if (response == 0) {
+            printf("Hai rifiutato la rivincita.\n");
+            return 0; // Torna al menu
+        }
+
+        // 3. Attesa Risposta Server (Cruciale per il pareggio)
+        // Se non è pareggio (è vittoria), il server ci mette in wait (se 1) o ci caccia (se 0)
+        // Ma nel tuo server, se è vittoria, rematch_by_winner viene chiamato.
+        if (!is_draw) return 1; 
+
+        printf("In attesa della decisione dell'avversario...\n");
+
+        char response_buf[64];
+        memset(response_buf, 0, sizeof(response_buf));
+        
+        // Ora leggiamo semplicemente la risposta, che è SICURAMENTE una stringa
+        int bytes = recv(sd, response_buf, sizeof(response_buf) - 1, 0);
+        if (bytes <= 0) return 0;
+
+        printf("Risposta avversario: %s\n", response_buf);
+
+        // CASO A: Rifiuto
+        if (strstr(response_buf, "REMATCH_DECLINED") != NULL) {
+            printf(">>> La rivincita è stata DECLINATA.\n");
+            return 0; // Torna al menu
+        }
+
+        // CASO B: Accettazione
+        if (strstr(response_buf, "START_PLAYER") != NULL) {
+            printf(">>> Entrambi hanno accettato! Riavvio partita...\n");
+            // Nota: Abbiamo già "consumato" la stringa START_PLAYER leggendola in response_buf
+            // Quindi possiamo tornare 1 e il loop leggerà pulito il prossimo CMD_PLAY/WAIT
+            return 1; 
+        }
+    }
+    
+    return 0;
+}
+
+void handle_creation(int sd) {
+    int action = CREATE;
+    send(sd, &action, sizeof(int), 0);
+    printf("Partita creata.\n");
+    wait_for_challenger(sd); // Riutilizzo la logica di attesa
+}
+
+void handle_join(int sd) {
+    int action = JOIN;
+    printf("Inserisci ID partita: ");
+    int game_id;
+    scanf("%d", &game_id);
+
+    send(sd, &action, sizeof(int), 0);
+    send(sd, &game_id, sizeof(int), 0);
+
+    char response[64];
+    memset(response, 0, sizeof(response));
+    recv(sd, response, sizeof(response) - 1, 0);
+
+    if (strncmp(response, "JOIN_OK", 7) == 0) {
+        printf("Accesso consentito!\n");
+        // Aspettiamo START_PLAYER2 o WAIT
+        // Il server in join manda CMD_WAIT direttamente in game_loop
+        game_loop(sd, game_id);
+    } else {
+        printf("Errore: %s\n", response);
+    }
+}
+
+void handle_list(int sd) {
+    int action = LIST;
+    send(sd, &action, sizeof(int), 0);
+    char buffer[4096] = {0};
+    recv(sd, buffer, sizeof(buffer) - 1, 0);
+    printf("\n--- PARTITE ---\n%s\n", buffer);
 }
