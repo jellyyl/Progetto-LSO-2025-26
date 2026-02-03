@@ -233,11 +233,11 @@ void send_board_with_message(int sd, Game* game, char* msg) {
     sprintf(full_message, 
             "\n"
             "...0...1...2\n"              
-            "0..%c.|.%c.|.%c \n"          
+            "0..%c.|.%c.|.%c.\n"          
             "..---|---|---\n"             
-            "1..%c.|.%c.|.%c \n"          
+            "1..%c.|.%c.|.%c.\n"          
             "..---|---|---\n"             
-            "2..%c.|.%c.|.%c \n"
+            "2..%c.|.%c.|.%c.\n"
             "\n%s\n", // Messaggio attaccato in fondo
             game->table[0][0], game->table[0][1], game->table[0][2],
             game->table[1][0], game->table[1][1], game->table[1][2],
