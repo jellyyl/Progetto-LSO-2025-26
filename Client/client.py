@@ -10,7 +10,6 @@ porta = 5200
 # ---------------------------- GLOBAL ----------------------------
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    # Socket del client
 game_id = None      # Id della partita che si sta giocando
-# turno_offset = 0    # 0 se si sta giocando come creatore, 2 se come sfidante
 
 # ---------------------------- EVENTI ----------------------------
 def on_start():
@@ -22,7 +21,7 @@ def on_start():
         if(conn_test == -1):
             gui.mostra_errore("Connessione al server fallita", "Riprova", on_start, on_esci)
         else:
-            aggiorna_partite() # AD HOME
+            aggiorna_partite()
 
     gui.root.after(1400, connetti)
 
@@ -46,10 +45,10 @@ def on_crea_partita():
 
         if(scelta == 0):
             conferma = net.raw_a_string(net.richiedi_dato(sock, gui.root, None))
-            if(conferma == "START_PLAYER1"):
+            if(conferma[0:13] == "START_PLAYER1"):
                 gui.nascondi_finestra(finestra_attesa)
-                gui.mostra_partita(1, on_click_cella)
-                # INIZI TU
+                gui.mostra_partita('X', on_click_cella)
+                loop_partita(0)
                 
 
 def on_connetti(partita):
@@ -62,18 +61,17 @@ def on_connetti(partita):
     finestra_attesa = gui.mostra_attesa("In attesa di conferma")
     conferma = net.raw_a_string(net.richiedi_dato(sock, gui.root, None))
     gui.nascondi_finestra(finestra_attesa)
-    if(conferma == "JOIN_OK"):
-        gui.mostra_partita(2, on_click_cella)
-        
-    elif(conferma == "JOIN_DENIED"):
+    if(conferma[0:7] == "JOIN_OK"):
+        gui.mostra_partita('O', on_click_cella)
+        loop_partita(1)
+    elif(conferma[0:11] == "JOIN_DENIED"):
         gui.mostra_errore("L'host ha rifiutato")
     else:
         gui.mostra_errore("Si è verificato un errore")
     gui.nascondi_finestra(finestra_attesa)
 
 def on_click_cella(r, c):
-    invia_mossa(game_id, r, c)
-    net.richiedi_dato(sock, gui.root, None)
+    invia_mossa(r, c)
 
 def on_esci():
     net.chiudi_socket(sock)
@@ -98,8 +96,8 @@ def aggiorna_partite():
     stringa_partite = net.raw_a_string(stringa_raw) if stringa_raw != None else ""
     gui.aggiorna_partite(stringa_partite, on_connetti)
 
-def aggiorna_griglia(str_griglia):
-    str_clean = re.sub(r'[^XO ]', '', str_griglia)[0:9]
+def aggiorna_griglia(str_griglia): # Da rimuovere in seguito (arriverà dal server la stringa già pulita)
+    str_clean = re.sub(r'[^XO ]', '', str_griglia)
     for i in range(0, 9):
         if(str_clean[i] == ' '):
             continue
@@ -109,29 +107,29 @@ def aggiorna_griglia(str_griglia):
             y = cella[1]
             gui.riempi_cella_partita(str_clean[i], x, y)
 
-def set_turno(turno):   # turno = {0,1} per chi ha creato la partita, {2,3} per chi ha joinato
-    if(turno%2 == 0):
-        gui.abilita_griglia_partita()
-        colore = "#ff4d4d" if turno == 0 else "#4da6ff"
-        gui.aggiorna_label_partita("È il tuo turno", colore, False)
-    elif(turno%2 == 1):
-        gui.disabilita_griglia_partita()
-        colore = "#ff4d4d" if turno == 3 else "#4da6ff"
-        gui.aggiorna_label_partita("Turno dell'avversario", colore, True)
-
-def inizia_partita():
-    cmd = None
-    while(True):
-        cmd = net.raw_a_int(net.richiedi_dato(sock, gui.root, None))
-        str_griglia = net.raw_a_string(net.richiedi_dato(sock, gui.root, None))
-        aggiorna_griglia(str_griglia)
-
+def loop_partita(giocatore):    # giocatore = 0 se creatore, 1 se sfidante
+    while(True):    # (CMD_OVER)
+        cmd_raw = net.richiedi_dato(sock, gui.root, None)
+        cmd = net.raw_a_int(cmd_raw[0:4])
+        
         match(cmd):
             case 1: # (CMD_PLAY)
+                str_griglia = net.raw_a_string(cmd_raw[5:4096])
+                aggiorna_griglia(str_griglia)
+                gui.abilita_griglia_partita()
+                gui.aggiorna_label_partita("È il tuo turno", "#ff4d4d" if giocatore == 0 else "#4da6ff", False)
                 
             case 2: # (CMD_WAIT)
+                gui.disabilita_griglia_partita()
+                str_griglia = net.raw_a_string(cmd_raw[5:4096])
+                aggiorna_griglia(str_griglia)
+                gui.aggiorna_label_partita("Turno dell'avversario", "#ff4d4d" if giocatore == 1 else "#4da6ff", True)
             case 3: # (CMD_OVER)
-            case 4: # (CMD_INVALID)           
+                print(net.raw_a_string(net.richiedi_dato(sock, gui.root, None)))
+            case 4: # (CMD_INVALID)   
+                print("INVALIDO")
+            case _:
+                print("IGNOTO")        
 
 def invia_mossa(r, c):
     net.invia_intero(sock, 4) # (MOVE)

@@ -40,6 +40,18 @@ def converti_str_in_partite(stringa):
             i = 0
     return partite
 
+def gestisci_riduzione_a_icona(finestra):
+    def on_root_unmap(event):
+        if finestra.winfo_exists():
+            finestra.grab_release()
+
+    def on_root_map(event):
+        if finestra.winfo_exists():
+            finestra.grab_set()
+
+    root.bind("<Unmap>", on_root_unmap)
+    root.bind("<Map>", on_root_map)
+
 def aggiorna_partite(str_newpartite, on_connetti):
         global label_nopartite, scroll_attivo
         new_partite = converti_str_in_partite(str_newpartite)
@@ -205,6 +217,7 @@ def mostra_attesa(messaggio):
         command=attesa.destroy
     ).pack(pady=8)
 
+    gestisci_riduzione_a_icona(attesa)
     attesa.iconbitmap(percorso_icona)
     return attesa
 
@@ -255,6 +268,7 @@ def mostra_scelta(messaggio, testo_btn1="Accetta", testo_btn2="Rifiuta"): # Rest
         command=lambda: scegli(2)
     ).pack(side="left", padx=10)
 
+    gestisci_riduzione_a_icona(scelta)
     scelta.iconbitmap(percorso_icona)
     scelta.wait_window()
     return risultato
@@ -310,6 +324,7 @@ def mostra_errore(messaggio, testo_btn1="OK", on_press=lambda: None, on_esci=Non
             command=on_esci
         ).pack(side="left", padx=10)
 
+    gestisci_riduzione_a_icona(errore)
     errore.iconbitmap(percorso_icona)
     errore.wait_window()
 
@@ -349,7 +364,7 @@ def abilita_griglia_partita():
         if(tris_canvas.gettags(i)[0] == "0"):
             tris_canvas.itemconfig(i, state="normal")
 
-def mostra_partita(giocatore, on_click_cella): # Giocatore = 1: gioca X, Giocatore = 2: gioca O
+def mostra_partita(simbolo_giocatore, on_click_cella):
     partita = tk.Toplevel(root)
     partita.title("Tris")
     partita.geometry(calcola_geometria(360, 380))
@@ -374,7 +389,7 @@ def mostra_partita(giocatore, on_click_cella): # Giocatore = 1: gioca X, Giocato
 
     # Disegno cella cliccata e chiamata evento
     def click_cella(r, c):
-        riempi_cella_partita(giocatore, r, c)
+        riempi_cella_partita(simbolo_giocatore, r, c)
         on_click_cella(r, c)
 
     # Disegno celle
@@ -420,6 +435,7 @@ def mostra_partita(giocatore, on_click_cella): # Giocatore = 1: gioca X, Giocato
     )
     label_turno.pack(anchor="n", pady=(6, 8))
 
+    gestisci_riduzione_a_icona(partita)
     partita.iconbitmap(percorso_icona)
     return partita
 

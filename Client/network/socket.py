@@ -42,6 +42,7 @@ def richiedi_dato(sock, root, timeout=None):  # Passa anche l'interfaccia in mod
             nonlocal risultato
             try:
                 risultato = sock.recv(4096)
+                #print(risultato) # DEBUGGGGGGGGGGGGGGG
             except socket.timeout, OSError:
                 risultato = None
             finally:
@@ -55,7 +56,6 @@ def richiedi_dato(sock, root, timeout=None):  # Passa anche l'interfaccia in mod
                 root.update()
             except tkinter.TclError:
                 break
-
         return risultato
     
 def raw_a_int(dati_raw):
@@ -69,3 +69,12 @@ def raw_a_string(dati_raw):
         return dati_raw.decode("utf-8")
     else:
         return None
+    
+def recv_exact(sock, n):
+    data = b''
+    while len(data) < n:
+        chunk = sock.recv(n - len(data))
+        if not chunk:
+            raise ConnectionError("Socket chiusa")
+        data += chunk
+    return data
