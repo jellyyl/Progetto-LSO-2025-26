@@ -42,7 +42,7 @@ def richiedi_dato(sock, root, timeout=None):  # Passa anche l'interfaccia in mod
             nonlocal risultato
             try:
                 risultato = sock.recv(4096)
-                #print(risultato) # DEBUGGGGGGGGGGGGGGG
+                print(risultato) # DEBUGGGGGGGGGGGGGGG
             except socket.timeout, OSError:
                 risultato = None
             finally:

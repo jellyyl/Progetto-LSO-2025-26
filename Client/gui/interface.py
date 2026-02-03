@@ -14,8 +14,6 @@ img_o = tk.PhotoImage(file=BASE_DIR / "assets" / "o.png")
 percorso_icona = BASE_DIR / "assets" / "icon.ico"
 
 # Variabili di aggiornamento
-agg_var = None
-ms = 1000
 anim_id = None
 scroll_attivo = False
 
@@ -30,14 +28,12 @@ def converti_str_in_partite(stringa):
     dati = stringa.split(";")
     partite = []
     partita = []
-    i = 0
     for dato in dati:
         partita.append(dato)
-        i = i + 1
-        if(i >= 3 and partita[2] == "1"):
-            partite.append(partita)
+        if(len(partita) >= 3):
+            if(partita[2] == "1"):
+                partite.append(partita)
             partita = []
-            i = 0
     return partite
 
 def gestisci_riduzione_a_icona(finestra):
@@ -356,11 +352,11 @@ def aggiorna_label_partita(testo, colore_sfondo, waiting=False):
         animazione_puntini()
 
 def disabilita_griglia_partita():
-    for i in range(1, 9):
+    for i in range(1, 10):
         tris_canvas.itemconfig(i, state="disabled")
 
 def abilita_griglia_partita():
-    for i in range(1, 9):
+    for i in range(1, 10):
         if(tris_canvas.gettags(i)[0] == "0"):
             tris_canvas.itemconfig(i, state="normal")
 
