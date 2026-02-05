@@ -25,6 +25,32 @@ typedef enum {
     ST_FINISHED  
 } GameState;
 
+typedef enum {
+    // --- JOIN PHASE (200-299) ---
+    MSG_JOIN_OK = 200,
+    MSG_JOIN_REQUEST = 201,     // Quando notifichi P1 che qualcuno vuole entrare
+    MSG_JOIN_DENIED = 202,      // Partita piena o rifiutata
+
+    // --- GAME PHASE (300-399) ---
+    MSG_START_PLAYER1 = 300,
+    MSG_START_PLAYER2 = 301,
+    MSG_CANCELLED = 302,        // Quando P1 rifiuta la richiesta
+    MSG_CHANGE_OWNER = 303,     // Quando P2 vince e diventa host
+
+    // --- REMATCH PHASE (400-499) ---
+    MSG_REMATCH_REQUEST = 400,
+    MSG_REMATCH_DECLINED = 401,
+
+    // --- ERRORS (500+) ---
+    ERR_JOIN_NOT_FOUND = 500,
+    ERR_APPROVE_NOT_FOUND = 501,
+    ERR_REMATCH_NOT_FOUND = 502,
+    ERR_REMATCH_NOT_PLAYER = 503,
+    ERR_REMATCH_NOT_FINISHED = 504,
+    ERR_REMATCH_NOT_OWNER = 505
+
+} ResponseCode;
+
 typedef struct Game{
     int id;
     int id_player1;

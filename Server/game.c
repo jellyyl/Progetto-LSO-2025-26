@@ -441,6 +441,7 @@ int rematch_by_winner(Game* game, int sd, int response){
         return -1;
     }
 
+    //bisogna cambiare e gestire la fine della partita
     if(response != 1) {
         cmd_message = CMD_OVER;
         send(sd, &cmd_message, sizeof(int), 0);
