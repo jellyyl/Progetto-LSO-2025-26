@@ -14,8 +14,6 @@ img_o = tk.PhotoImage(file=BASE_DIR / "assets" / "o.png")
 percorso_icona = BASE_DIR / "assets" / "icon.ico"
 
 # Variabili di aggiornamento
-agg_var = None
-ms = 1000
 anim_id = None
 scroll_attivo = False
 
@@ -24,8 +22,35 @@ def calcola_geometria(width, height):
     y = root.winfo_y() + (root.winfo_height() // 2) - (height // 2)
     return f"{width}x{height}+{x}+{y}"
 
-def aggiorna_partite(new_partite, on_connetti):
+def converti_str_in_partite(stringa):
+    stringa = stringa.replace(" ", "")
+    stringa = stringa.replace("\n", "")
+    dati = stringa.split(";")
+    partite = []
+    partita = []
+    for dato in dati:
+        partita.append(dato)
+        if(len(partita) >= 3):
+            if(partita[2] == "1"):
+                partite.append(partita)
+            partita = []
+    return partite
+
+def gestisci_riduzione_a_icona(finestra):
+    def on_root_unmap(event):
+        if finestra.winfo_exists():
+            finestra.grab_release()
+
+    def on_root_map(event):
+        if finestra.winfo_exists():
+            finestra.grab_set()
+
+    root.bind("<Unmap>", on_root_unmap)
+    root.bind("<Map>", on_root_map)
+
+def aggiorna_partite(str_newpartite, on_connetti):
         global label_nopartite, scroll_attivo
+        new_partite = converti_str_in_partite(str_newpartite)
         home_canvas.delete("all")
         home_canvas.create_window((0,0), window=scroll_frame, anchor="nw")
         for widget in scroll_frame.winfo_children():
@@ -52,10 +77,9 @@ def aggiorna_partite(new_partite, on_connetti):
                 card = ttk.Frame(scroll_frame, style="Card.TFrame", padding=8, width=500, height=60)
                 card.pack(fill="x", pady=6, padx=8)
 
-                # Forza la dimensione fissa
                 card.pack_propagate(False)
 
-                info = f"ID: {part[0]}   |   {part[1]}   |   {part[2]}"
+                info = f"ID: {part[0]} | Host: {part[1]}   "
                 ttk.Label(card, text=info, style="Card.TLabel") \
                     .grid(row=0, column=0, sticky="w")
 
@@ -80,20 +104,7 @@ def aggiorna_partite(new_partite, on_connetti):
                 
         home_canvas.configure(scrollregion=home_canvas.bbox("all"))
 
-def imposta_aggiornamento(funz_periodica, millisecondi):
-    global on_aggiorna, ms
-    on_aggiorna = funz_periodica
-    ms = millisecondi
-
-def attiva_aggiornamento():
-    global agg_var
-    on_aggiorna()
-    agg_var = root.after(ms, attiva_aggiornamento)
-
-def disattiva_aggiornamento():
-    root.after_cancel(agg_var)
-
-def mostra_home(partite_in, on_crea_partita, on_connetti, on_esci, on_focus, on_unfocus):
+def mostra_home(str_partite, on_crea_partita, on_connetti, on_esci, on_focus, on_unfocus):
     # Finestra Principale
     setup_style(root)
     root.title("Home")
@@ -161,7 +172,7 @@ def mostra_home(partite_in, on_crea_partita, on_connetti, on_esci, on_focus, on_
     home_canvas.bind_all("<Button-5>", _on_mousewheel)
 
     # Pannello Partite
-    aggiorna_partite(partite_in, on_connetti)
+    aggiorna_partite(str_partite, on_connetti)
 
     root.iconbitmap(percorso_icona)
     root.mainloop()
@@ -190,7 +201,7 @@ def mostra_attesa(messaggio):
 
     def animazione_puntini():
         nonlocal n_puntini
-        n_puntini = (n_puntini + 1) % 4  # 0..3
+        n_puntini = (n_puntini + 1) % 4
         label.configure(text=messaggio + "." * n_puntini)
         attesa.after(500, animazione_puntini)
 
@@ -202,13 +213,14 @@ def mostra_attesa(messaggio):
         command=attesa.destroy
     ).pack(pady=8)
 
+    gestisci_riduzione_a_icona(attesa)
     attesa.iconbitmap(percorso_icona)
     return attesa
 
 def nascondi_finestra(finestra):
     finestra.destroy()
 
-def mostra_scelta(messaggio, testo_btn1, testo_btn2): # Restituisce 1 se viene premuto btn1, 2 se btn2
+def mostra_scelta(messaggio, testo_btn1="Accetta", testo_btn2="Rifiuta"): # Restituisce 1 se viene premuto btn1, 2 se btn2
     risultato = None
 
     scelta = tk.Toplevel(root)
@@ -252,17 +264,15 @@ def mostra_scelta(messaggio, testo_btn1, testo_btn2): # Restituisce 1 se viene p
         command=lambda: scegli(2)
     ).pack(side="left", padx=10)
 
+    gestisci_riduzione_a_icona(scelta)
     scelta.iconbitmap(percorso_icona)
     scelta.wait_window()
     return risultato
 
-import tkinter as tk
-from tkinter import ttk
-
-def mostra_errore(messaggio):
+def mostra_errore(messaggio, testo_btn1="OK", on_press=lambda: None, on_esci=None): # Se on_esci = None il bottone esci non viene mostrato
     errore = tk.Toplevel(root)
     errore.title("Errore")
-    errore.geometry(calcola_geometria(320, 150))
+    errore.geometry(calcola_geometria(320, 170))
     errore.resizable(False, False)
 
     errore.transient(root)
@@ -288,24 +298,42 @@ def mostra_errore(messaggio):
         font=("Segoe UI", 11)
     ).pack(side="left", fill="x", expand=True)
 
-    ttk.Button(
-        main,
-        text="OK",
-        command=errore.destroy
-    ).pack(pady=(15, 0))
+    def destroy_and_onpress():
+        errore.destroy()
+        on_press()
 
+    btn_frame = ttk.Frame(main)
+    btn_frame.pack(pady=10)
+
+    ttk.Button(
+        btn_frame,
+        text=testo_btn1,
+        style="Header2.TButton",
+        command=destroy_and_onpress
+    ).pack(side="left", padx=10)
+
+    if(on_esci != None):
+        ttk.Button(
+            btn_frame,
+            text="Esci",
+            style="Header3.TButton",
+            command=on_esci
+        ).pack(side="left", padx=10)
+
+    gestisci_riduzione_a_icona(errore)
     errore.iconbitmap(percorso_icona)
     errore.wait_window()
 
 
-def riempi_cella_partita(giocatore, r, c):
-    x = c * 101.6 + 100 // 2
-    y = r * 101.6 + 100 // 2
-    tris_canvas.create_image(x, y, image = img_x if giocatore==1 else img_o)
-    tris_canvas.itemconfig(r*3 + c+1, state="disabled", tags=(1))
+def riempi_cella_partita(simbolo, r, c):
+    if(tris_canvas.gettags(r*3+c+1)[0] == "0"):
+        x = c * 101.6 + 100 // 2
+        y = r * 101.6 + 100 // 2
+        tris_canvas.create_image(x, y, image = img_x if simbolo=='X' else img_o)
+        tris_canvas.itemconfig(r*3 + c+1, state="disabled", tags=(1))
 
-def aggiorna_label_partita(testo, colore_sfondo, waiting):
-    global label_turno, panel_turno, anim_id
+def aggiorna_label_partita(testo, colore_sfondo, waiting=False):
+    global label_turno, panel_turno, anim_id 
     label_turno.configure(text=testo, background=colore_sfondo)
     panel_turno.configure(background=colore_sfondo)
 
@@ -324,15 +352,15 @@ def aggiorna_label_partita(testo, colore_sfondo, waiting):
         animazione_puntini()
 
 def disabilita_griglia_partita():
-    for i in range(1, 9):
+    for i in range(1, 10):
         tris_canvas.itemconfig(i, state="disabled")
 
 def abilita_griglia_partita():
-    for i in range(1, 9):
+    for i in range(1, 10):
         if(tris_canvas.gettags(i)[0] == "0"):
             tris_canvas.itemconfig(i, state="normal")
 
-def mostra_partita(giocatore, on_click_cella): # Giocatore = 1: gioca X, Giocatore = 2: gioca O
+def mostra_partita(simbolo_giocatore, on_click_cella):
     partita = tk.Toplevel(root)
     partita.title("Tris")
     partita.geometry(calcola_geometria(360, 380))
@@ -357,7 +385,7 @@ def mostra_partita(giocatore, on_click_cella): # Giocatore = 1: gioca X, Giocato
 
     # Disegno cella cliccata e chiamata evento
     def click_cella(r, c):
-        riempi_cella_partita(giocatore, r, c)
+        riempi_cella_partita(simbolo_giocatore, r, c)
         on_click_cella(r, c)
 
     # Disegno celle
@@ -403,6 +431,7 @@ def mostra_partita(giocatore, on_click_cella): # Giocatore = 1: gioca X, Giocato
     )
     label_turno.pack(anchor="n", pady=(6, 8))
 
+    gestisci_riduzione_a_icona(partita)
     partita.iconbitmap(percorso_icona)
     return partita
 

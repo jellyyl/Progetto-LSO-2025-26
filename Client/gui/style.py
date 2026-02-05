@@ -44,7 +44,7 @@ def setup_style(root):
         "Header3.TButton",
         font=("Segoe UI", 10, "bold"),
         padding=8,
-        background="#FF4D4D",
+        background="#ff4d4d",
         foreground="white"
     )
 

@@ -1,0 +1,76 @@
+CHAT
+
+CASO CREA PARTITA
+Client: (CREATE) 
+(Attende)
+Server: (JOIN_REQUEST)(game_id)
+Client: 0
+Server: (START_PLAYER_1)
+Server: (CMD_PLAY)
+Server: <BOARD>
+
+(caso rifiuto)
+Client: 1
+Server: (CANCELLED)
+Continua ad aspettare sfidanti)
+
+CASO CONNETTI
+Client: (JOIN)
+(Attende)
+Server: (JOIN_OK)
+Server: (CMD_WAIT)
+Server: <BOARD>
+
+(caso rifiuto)
+Server: (JOIN_DENIED)
+(Torna al menu)	
+
+CASO PARTITA (dopo che entrambi hanno ricevuto <BOARD>)
+Socket creatore:
+Client: (MOVE)
+Client: "X" "Y"			Socket avversario:
+Server: (CMD_WAIT)		Server: (CMD_PLAY)	
+Server: <BOARD>			Server: <BOARD>
+				Client: (MOVE)
+				Client: "X" "Y"
+				Server: (CMD_WAIT)		
+				Server: (CMD_PLAY)
+[...]
+Server: (CMD_OVER)		Server: (CMD_OVER)
+Server: <BOARD>(MSG_WIN)	Server: <BOARD>(MSG_LOSE)
+
+(caso pareggio: ad entrambi)
+Server: (CMD_OVER)
+Server: <BOARD>(MSG_DRAW)
+
+CASO PARTITA FINITA
+(vincitore giocatore proprietario)
+Server: (REMATCH_REQUEST)
+Client: (REMATCH)
+Client: 1
+(CASO CREA PARTITA SENZA CREATE)
+
+Client: 0
+(Torna al menu)
+
+(vincitore giocatore ospite)
+Server: (CHANGE_OWNER)
+Server: (REMATCH_REQUEST)
+(Continua come sopra)
+
+(pareggio: ad entrambi)
+Server: (REMATCH_REQUEST)	Server: (REMATCH_REQUEST)
+(se uno dei due rifiuta manda all'altro (REMATCH_DECLINED))
+(altrimenti)
+Client: (REMATCH)		Client: (REMATCH)
+Client: 1			Client: 1
+Server: (START_PLAYER1)		Server: (START_PLAYER2)	
+Server: (CMD_PLAY)		Server: (CMD_WAIT)
+Server: <BOARD>			Server: <BOARD>
+
+
+
+
+Nappi ha avviato Hentai Puzzle 3D
+Simone Francesco è un coglione di merda
+Caruso: *urla*
