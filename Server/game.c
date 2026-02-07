@@ -12,6 +12,7 @@
 #define CMD_WAIT 2
 #define CMD_OVER 3
 #define CMD_INVALID 4 // mossa non valida
+#define CMD_QUIT 5 //disconnesione utente da parita
 
 game_vector_t game_vector;
 int list_increment_game_id = 0;
@@ -20,28 +21,33 @@ void move(int game_id, int sd);
 void send_board_to_socket(int sd, Game* game);
 void send_board_with_message(int sd, Game* game, char* msg); 
 int check_winner(Game* game);
-void create_game(int client_id);
+int create_game(int client_id);
 Game generate_game(int client_id);
 void get_list_game(int sd);
 void join_game(int client_id, int game_id, int sd);
 void approve_join_request(int game_id, int sd, int response);
 void broadcast_game_state(Game *game, int check_error);
+void quit_game(int disconnected_player, int game_id);
 
 // Funzione principale che gestisce le azioni dell'utente
 void game_action(void *arg)
 {
     int client_id = *(int *)arg;
     int sd = client_id; 
-
+    int current_game_id = -1;
     while (1)
     {
         int action = 0;
-        if (recv(sd, &action, sizeof(int), 0) <= 0) break;
-
+        //ogni volta controllo la disconnessione 
+        if (recv(sd, &action, sizeof(int), 0) <= 0) {
+            quit_game(sd, current_game_id); 
+            break; 
+        }
+        
         switch (action)
         {
         case CREATE:
-            create_game(client_id);
+            current_game_id = create_game(client_id);
             break;
         case LIST:
             get_list_game(sd);
@@ -51,6 +57,7 @@ void game_action(void *arg)
             int game_id;
             if (recv(sd, &game_id, sizeof(int), 0) <= 0) 
                 break; 
+            current_game_id = game_id;
             join_game(client_id, game_id, sd);
             break;
         }
@@ -59,6 +66,8 @@ void game_action(void *arg)
             int game_id;
             if (recv(sd, &game_id, sizeof(int), 0) <= 0) 
                 break; 
+            
+            current_game_id = game_id;
             move(game_id, sd);
             break;
         }
@@ -75,6 +84,7 @@ void game_action(void *arg)
             int game_id, response;
             recv(sd, &game_id, sizeof(int), 0);
             recv(sd, &response, sizeof(int), 0);
+            if(response == 0){current_game_id = game_id;}
             approve_join_request(game_id, sd, response);
             break;
         }
@@ -108,7 +118,48 @@ void get_list_game(int sd)
     send(sd, buffer, strlen(buffer), 0);
 }
 
-void create_game(int client_id)
+void quit_game(int disconnected_player, int game_id){
+
+    Game *game = get_game_by_id(&game_vector, game_id);
+    if (game == NULL){
+        printf("Errore nella ricerca della partita.\n");
+         close(disconnected_player);
+        return;
+    }
+
+    pthread_mutex_lock(&game->game_mutex);
+
+    int player_in_game = -1;
+
+    if(game->state == ST_WAITING){
+        game->state = ST_FINISHED;
+        printf("P1 si è disconnesso dalla lobby %d. Partita chiusa.\n", game_id);
+        // Sblocchiamo eventuali thread pendenti (difesa preventiva)
+        pthread_cond_broadcast(&game->cond_wait_P1);
+        pthread_mutex_unlock(&game->game_mutex);
+    }
+    else if(game->state == ST_APPROVE || game->state == ST_PLAYING){
+        //trovo il player non disconnesso
+        if(disconnected_player == game->id_player1){
+            player_in_game = game->id_player2;
+        }
+        else if(disconnected_player == game->id_player2){
+            player_in_game = game->id_player1;
+        }
+
+        if (player_in_game != -1) { //se esiste ancora un player nel game
+                int cmd = CMD_QUIT;
+                send(player_in_game, &cmd, sizeof(int), 0);
+        }
+        game->state = ST_FINISHED;
+        printf("Socket %d disconnesso. Partita %d terminata forzatamente.\n", disconnected_player, game->id);
+        pthread_mutex_unlock(&game->game_mutex);
+
+    }
+    close(disconnected_player);
+}
+
+int create_game(int client_id)
 {
     Game new_game = generate_game(client_id);
     insert_game_into_vector(&game_vector, &new_game);
@@ -122,8 +173,10 @@ void create_game(int client_id)
             pthread_cond_wait(&inserted_game->cond_wait_P1, &inserted_game->game_mutex);
         }
         pthread_mutex_unlock(&inserted_game->game_mutex);
+        return new_game.id;
     } else{
         printf("Errore nell'inserimento della nuova partita.\n");
+        return -1;
     }
 }
 
@@ -141,6 +194,7 @@ void join_game(int client_id, int game_id, int sd)
 
     if (selected_game->state != ST_WAITING) {
         pthread_mutex_unlock(&selected_game->game_mutex);
+        send(sd, "JOIN_ERR_FULL", 13, 0); 
         return;
     }
 
@@ -153,7 +207,20 @@ void join_game(int client_id, int game_id, int sd)
     memset(join_packet, 0, 17);
     strcpy(join_packet, "JOIN_REQUEST");
     memcpy(join_packet + 13, &game_id, sizeof(int));
-    send(p1_sd, join_packet, 17, 0);
+    
+    if ((send(p1_sd, join_packet, 17, MSG_NOSIGNAL) < 0)) { // se la send a p1 non va buon fine, P1 si è disconesso
+        
+        printf("Rilevato P1 disconnesso...\n");
+    
+        selected_game->state = ST_FINISHED;
+        
+        send(sd, "JOIN_ERR_OWNER_LEFT", 19, 0);
+        
+        selected_game->id_player2 = -1;
+
+        pthread_mutex_unlock(&selected_game->game_mutex);
+        return;
+    }
     
     pthread_cond_signal(&selected_game->cond_wait_P1);
 

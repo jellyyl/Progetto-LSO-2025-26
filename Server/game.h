@@ -69,7 +69,7 @@ extern game_vector_t game_vector;
 
 void game_action(void *arg);
 void get_list_game(int sd);
-void create_game(int client_id);
+int create_game(int client_id);
 Game generate_game(int client_id);
 void join_game(int client_id, int game_id, int sd);
 void approve_join_request(int game_id, int sd, int response);

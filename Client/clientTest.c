@@ -16,6 +16,7 @@ typedef enum {
     MOVE = 4,
     REMATCH = 5,
     APPROVE = 6
+
 } Action;
 
 // --- PROTOCOLLO SERVER ---
@@ -23,6 +24,8 @@ typedef enum {
 #define CMD_WAIT 2
 #define CMD_OVER 3
 #define CMD_INVALID 4
+#define CMD_QUIT 5 //disconnesione utente da parita
+#define CMD_QUIT_PRE_GAME 6 //disconnesione utente pre-partita
 
 // Prototipi
 void game_loop(int sd, int game_id);
@@ -64,6 +67,7 @@ int main() {
     }
     return 0;
 }
+
 
 // Funzione che gestisce l'attesa di un avversario (Usata in creazione e in rivincita da vincitore)
 void wait_for_challenger(int sd) {
@@ -172,7 +176,13 @@ void game_loop(int sd, int game_id) {
                     return;
                 }
                 break;
-
+            case CMD_QUIT:
+                printf("\n------------------------------------------------\n");
+                printf("   L'AVVERSARIO SI È CAGATO SOTTO!  \n");
+                printf(" Hai vinto a tavolino per abbandono.\n");
+                printf("------------------------------------------------\n");
+                return;
+                break; // Esci dal ciclo di gioco e torna al menu
             default:
                 // Se arriva spazzatura, puliamo il buffer per evitare loop infiniti
                 printf("Comando ignoto (%d). Pulizia buffer...\n", cmd);
@@ -279,7 +289,13 @@ void handle_join(int sd) {
         // Aspettiamo START_PLAYER2 o WAIT
         // Il server in join manda CMD_WAIT direttamente in game_loop
         game_loop(sd, game_id);
-    } else {
+    }
+    else if (strncmp(response, "JOIN_ERR_OWNER_LEFT", 19) == 0){
+        printf("L'avversario si è disconesso!\n");
+        printf("Verrai riportato al menu\n");
+        return;
+    }
+    else {
         printf("Errore: %s\n", response);
     }
 }
