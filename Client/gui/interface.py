@@ -11,7 +11,7 @@ root = tk.Tk()
 BASE_DIR = Path(__file__).resolve().parent
 img_x = tk.PhotoImage(file=BASE_DIR / "assets" / "x.png")
 img_o = tk.PhotoImage(file=BASE_DIR / "assets" / "o.png")
-percorso_icona = BASE_DIR / "assets" / "icon.ico"
+icona = tk.PhotoImage(file=BASE_DIR / "assets" / "icon.png")
 
 # Variabili di aggiornamento
 anim_id = None
@@ -174,7 +174,7 @@ def mostra_home(str_partite, on_crea_partita, on_connetti, on_esci, on_focus, on
     # Pannello Partite
     aggiorna_partite(str_partite, on_connetti)
 
-    root.iconbitmap(percorso_icona)
+    root.iconphoto(True, icona)
     root.mainloop()
 
 def mostra_attesa(messaggio):
@@ -214,7 +214,7 @@ def mostra_attesa(messaggio):
     ).pack(pady=8)
 
     gestisci_riduzione_a_icona(attesa)
-    attesa.iconbitmap(percorso_icona)
+    attesa.iconphoto(True, icona)
     return attesa
 
 def nascondi_finestra(finestra):
@@ -265,7 +265,7 @@ def mostra_scelta(messaggio, testo_btn1="Accetta", testo_btn2="Rifiuta"): # Rest
     ).pack(side="left", padx=10)
 
     gestisci_riduzione_a_icona(scelta)
-    scelta.iconbitmap(percorso_icona)
+    scelta.iconphoto(True, icona)
     scelta.wait_window()
     return risultato
 
@@ -321,7 +321,7 @@ def mostra_errore(messaggio, testo_btn1="OK", on_press=lambda: None, on_esci=Non
         ).pack(side="left", padx=10)
 
     gestisci_riduzione_a_icona(errore)
-    errore.iconbitmap(percorso_icona)
+    errore.iconphoto(True, icona)
     errore.wait_window()
 
 
@@ -432,7 +432,7 @@ def mostra_partita(simbolo_giocatore, on_click_cella):
     label_turno.pack(anchor="n", pady=(6, 8))
 
     gestisci_riduzione_a_icona(partita)
-    partita.iconbitmap(percorso_icona)
+    partita.iconphoto(True, icona)
     return partita
 
 

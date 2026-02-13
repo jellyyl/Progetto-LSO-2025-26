@@ -26,7 +26,7 @@ def svuota_buffer(sock):
             data = sock.recv(4096)
             if not data:
                 break
-    except BlockingIOError, ConnectionAbortedError:
+    except (BlockingIOError, ConnectionAbortedError):
         pass
     finally:
         sock.setblocking(True)
@@ -43,7 +43,7 @@ def richiedi_dato(sock, root, timeout=None):  # Passa anche l'interfaccia in mod
             try:
                 risultato = sock.recv(4096)
                 print(risultato) # DEBUGGGGGGGGGGGGGGG
-            except socket.timeout, OSError:
+            except (socket.timeout, OSError):
                 risultato = None
             finally:
                 done.set()
