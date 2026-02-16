@@ -122,40 +122,40 @@ void quit_game(int disconnected_player, int game_id){
 
     Game *game = get_game_by_id(&game_vector, game_id);
     if (game == NULL){
-        printf("Errore nella ricerca della partita.\n");
-         close(disconnected_player);
+        printf("Errore nella ricerca della partita (ID %d).\n", game_id);
+        close(disconnected_player);
         return;
     }
 
     pthread_mutex_lock(&game->game_mutex);
 
-    int player_in_game = -1;
-
     if(game->state == ST_WAITING){
         game->state = ST_FINISHED;
         printf("P1 si è disconnesso dalla lobby %d. Partita chiusa.\n", game_id);
-        // Sblocchiamo eventuali thread pendenti (difesa preventiva)
         pthread_cond_broadcast(&game->cond_wait_P1);
-        pthread_mutex_unlock(&game->game_mutex);
     }
+ 
     else if(game->state == ST_APPROVE || game->state == ST_PLAYING){
-        //trovo il player non disconnesso
-        if(disconnected_player == game->id_player1){
-            player_in_game = game->id_player2;
-        }
-        else if(disconnected_player == game->id_player2){
-            player_in_game = game->id_player1;
-        }
+        
+        int player_in_game = -1;
+        if(disconnected_player == game->id_player1) player_in_game = game->id_player2;
+        else if(disconnected_player == game->id_player2) player_in_game = game->id_player1;
 
-        if (player_in_game != -1) { //se esiste ancora un player nel game
+        if (player_in_game != -1) { 
+            if (game->state == ST_PLAYING) {
                 int cmd = CMD_QUIT;
                 send(player_in_game, &cmd, sizeof(int), 0);
+            }
         }
-        game->state = ST_FINISHED;
+        
+        game->state = ST_FINISHED; 
         printf("Socket %d disconnesso. Partita %d terminata forzatamente.\n", disconnected_player, game->id);
-        pthread_mutex_unlock(&game->game_mutex);
-
+        
+       
+        pthread_cond_broadcast(&game->cond_approve);
     }
+    
+    pthread_mutex_unlock(&game->game_mutex);
     close(disconnected_player);
 }
 
@@ -231,12 +231,16 @@ void join_game(int client_id, int game_id, int sd)
     if (selected_game->state == ST_PLAYING) {
         send(sd, "JOIN_OK", 7, 0);
         usleep(100000);
-        // Inizializzazione Manuale P2 
         int cmd = CMD_WAIT; 
         send(sd, &cmd, sizeof(int), 0);
         send_board_to_socket(sd, selected_game);
+    } 
+    else if (selected_game->state == ST_FINISHED) {
         
-    } else {
+        send(sd, "JOIN_ERR_OWNER_LEFT", 19, 0);
+        selected_game->id_player2 = -1;
+    }
+    else {
         send(sd, "JOIN_DENIED", 11, 0);
         selected_game->id_player2 = -1;
     }
