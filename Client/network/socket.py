@@ -33,7 +33,7 @@ def svuota_buffer(sock):
 
 def richiedi_dato(sock, root, timeout=None):  # Passa anche l'interfaccia in modo tale da non bloccarla
     if(sock != None):                         # timeout = None: socket bloccante
-        svuota_buffer(sock)
+        # svuota_buffer(sock)
         sock.settimeout(timeout)
         risultato = None
         done = threading.Event()

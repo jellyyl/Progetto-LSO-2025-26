@@ -18,7 +18,7 @@ game_vector_t game_vector;
 int list_increment_game_id = 0;
 
 void move(int game_id, int sd);
-void send_board_to_socket(int sd, Game* game);
+void send_board_to_socket(int sd, Game* game, int cmd);
 void send_board_with_message(int sd, Game* game, char* msg); 
 int check_winner(Game* game);
 int create_game(int client_id);
@@ -232,8 +232,8 @@ void join_game(int client_id, int game_id, int sd)
         send(sd, "JOIN_OK", 7, 0);
         usleep(100000);
         int cmd = CMD_WAIT; 
-        send(sd, &cmd, sizeof(int), 0);
-        send_board_to_socket(sd, selected_game);
+        //send(sd, &cmd, sizeof(int), 0);
+        send_board_to_socket(sd, selected_game, cmd);
     } 
     else if (selected_game->state == ST_FINISHED) {
         
@@ -267,8 +267,8 @@ void approve_join_request(int game_id, int sd, int response)
             usleep(100000); 
             // Inizializzazione Manuale P1 
             int cmd = CMD_PLAY; 
-            send(sd, &cmd, sizeof(int), 0);
-            send_board_to_socket(sd, selected_game); 
+            //send(sd, &cmd, sizeof(int), 0);
+            send_board_to_socket(sd, selected_game, cmd); 
         }
         else
         {
@@ -281,9 +281,10 @@ void approve_join_request(int game_id, int sd, int response)
 }
 
 // invia SOLO il tabellone (usata durante la partita)
-void send_board_to_socket(int sd, Game* game) {
+void send_board_to_socket(int sd, Game* game, int cmd) {
     char board_update[1024];
-    sprintf(board_update, 
+    memcpy(board_update, &cmd, sizeof(int));
+    sprintf(board_update + sizeof(int),
             "\n"
             "...0...1...2\n"              
             "0..%c.|.%c.|.%c.\n"          
@@ -295,10 +296,10 @@ void send_board_to_socket(int sd, Game* game) {
             game->table[1][0], game->table[1][1], game->table[1][2],
             game->table[2][0], game->table[2][1], game->table[2][2]);
 
-    send(sd, board_update, strlen(board_update), 0);
+    send(sd, board_update, sizeof(int) + strlen(board_update + sizeof(int)), 0);
 }
 
-// invia Tabellone + MESSAGGIO (usata a fine partita)
+// invia Tabellone + MESSAGGIO (usata a fine partita)   // NON MANDA IL COMANDO
 void send_board_with_message(int sd, Game* game, char* msg) {
     char full_message[2048]; 
     sprintf(full_message, 
@@ -409,12 +410,12 @@ void broadcast_game_state(Game *game, int check_error) {
     }
 
     // Invio Standard
-    send(game->id_player1, &cmd_p1, sizeof(int), 0);
-    send_board_to_socket(game->id_player1, game);
+    //send(game->id_player1, &cmd_p1, sizeof(int), 0);
+    send_board_to_socket(game->id_player1, game, cmd_p1);
 
     if (game->id_player2 != -1) {
-        send(game->id_player2, &cmd_p2, sizeof(int), 0);
-        send_board_to_socket(game->id_player2, game);
+        //send(game->id_player2, &cmd_p2, sizeof(int), 0);
+        send_board_to_socket(game->id_player2, game, cmd_p2);
     }
 }
 
@@ -584,15 +585,15 @@ int rematch_from_both( Game* game, int sd, int response){
         usleep(100000); 
         // Inizializzazione Manuale P1 
         int cmd_p1 = CMD_PLAY; 
-        send(sd, &cmd_p1, sizeof(int), 0);
-        send_board_to_socket(sd, game);
+        //send(sd, &cmd_p1, sizeof(int), 0);
+        send_board_to_socket(sd, game, cmd_p1);
     } else if (game->id_player2 == sd){
         send(sd, "START_PLAYER2", 14, 0);
         usleep(100000); 
         // Inizializzazione Manuale P2 
         int cmd_p2 = CMD_WAIT; 
-        send(sd, &cmd_p2, sizeof(int), 0);
-        send_board_to_socket(sd, game);
+        //send(sd, &cmd_p2, sizeof(int), 0);
+        send_board_to_socket(sd, game, cmd_p2);
     }
 
     pthread_mutex_unlock(&game->game_mutex);
