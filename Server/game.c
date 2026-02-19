@@ -7,13 +7,6 @@
 #include <unistd.h>     
 #include <arpa/inet.h> 
 
-// Codici di comando dal server
-#define CMD_PLAY 1
-#define CMD_WAIT 2
-#define CMD_OVER 3
-#define CMD_INVALID 4 // mossa non valida
-#define CMD_QUIT 5 //disconnesione utente da parita
-
 game_vector_t game_vector;
 int list_increment_game_id = 0;
 
@@ -134,7 +127,6 @@ void quit_game(int disconnected_player, int game_id){
         printf("P1 si è disconnesso dalla lobby %d. Partita chiusa.\n", game_id);
         pthread_cond_broadcast(&game->cond_wait_P1);
     }
- 
     else if(game->state == ST_APPROVE || game->state == ST_PLAYING){
         
         int player_in_game = -1;
@@ -153,9 +145,10 @@ void quit_game(int disconnected_player, int game_id){
         
        
         pthread_cond_broadcast(&game->cond_approve);
-    }
-    
+    }    
     pthread_mutex_unlock(&game->game_mutex);
+    
+    remove_game_by_id(&game_vector, game_id);
     close(disconnected_player);
 }
 
@@ -186,7 +179,8 @@ void join_game(int client_id, int game_id, int sd)
     printf("Player %d tenta di unirsi alla partita %d...\n", client_id, game_id);
 
     if(selected_game == NULL) {
-        send(sd, "JOIN_ERR_NOT_FOUND", 18, 0);
+        int err = ERR_JOIN_NOT_FOUND;
+        send(sd, &err, sizeof(int), 0);
         return;
     }
 
@@ -194,7 +188,8 @@ void join_game(int client_id, int game_id, int sd)
 
     if (selected_game->state != ST_WAITING) {
         pthread_mutex_unlock(&selected_game->game_mutex);
-        send(sd, "JOIN_ERR_FULL", 13, 0); 
+        int err = MSG_JOIN_DENIED;
+        send(sd, &err, sizeof(int), 0); 
         return;
     }
 
@@ -203,18 +198,18 @@ void join_game(int client_id, int game_id, int sd)
     
     // Notifica P1
     int p1_sd = selected_game->id_player1;
-    char join_packet[17];
-    memset(join_packet, 0, 17);
-    strcpy(join_packet, "JOIN_REQUEST");
-    memcpy(join_packet + 13, &game_id, sizeof(int));
+    int join_packet[2];
+    join_packet[0] = MSG_JOIN_REQUEST;
+    join_packet[1] = game_id;
     
-    if ((send(p1_sd, join_packet, 17, MSG_NOSIGNAL) < 0)) { // se la send a p1 non va buon fine, P1 si è disconesso
+    if ((send(p1_sd, join_packet, sizeof(join_packet), MSG_NOSIGNAL) < 0)) { // se la send a p1 non va buon fine, P1 si è disconesso
         
         printf("Rilevato P1 disconnesso...\n");
     
         selected_game->state = ST_FINISHED;
         
-        send(sd, "JOIN_ERR_OWNER_LEFT", 19, 0);
+        int msg_error = ERR_JOIN_OWNER_LEFT;
+        send(sd, &msg_error, sizeof(int), 0);
         
         selected_game->id_player2 = -1;
 
@@ -229,19 +224,21 @@ void join_game(int client_id, int game_id, int sd)
     }
 
     if (selected_game->state == ST_PLAYING) {
-        send(sd, "JOIN_OK", 7, 0);
+        int msg = MSG_JOIN_OK;
+        send(sd, &msg, sizeof(int), 0);
         usleep(100000);
         int cmd = CMD_WAIT; 
-        //send(sd, &cmd, sizeof(int), 0);
         send_board_to_socket(sd, selected_game, cmd);
     } 
     else if (selected_game->state == ST_FINISHED) {
         
-        send(sd, "JOIN_ERR_OWNER_LEFT", 19, 0);
+        int err = MSG_JOIN_DENIED;
+        send(sd, &err, sizeof(int), 0);
         selected_game->id_player2 = -1;
     }
     else {
-        send(sd, "JOIN_DENIED", 11, 0);
+        int err = MSG_JOIN_DENIED;
+        send(sd, &err, sizeof(int), 0);
         selected_game->id_player2 = -1;
     }
 
@@ -253,7 +250,8 @@ void approve_join_request(int game_id, int sd, int response)
     Game *selected_game = get_game_by_id(&game_vector, game_id);
 
     if(selected_game == NULL) {
-        send(sd, "APPROVE_ERR_NOT_FOUND", 21, 0);
+        int err = ERR_APPROVE_NOT_FOUND;
+        send(sd, &err, sizeof(int), 0);
         return;
     }
 
@@ -263,7 +261,8 @@ void approve_join_request(int game_id, int sd, int response)
         if (response == 0)
         { 
             selected_game->state = ST_PLAYING;
-            send(sd, "START_PLAYER1", 14, 0);
+            int msg = MSG_START_PLAYER1;
+            send(sd, &msg, sizeof(int), 0);
             usleep(100000); 
             // Inizializzazione Manuale P1 
             int cmd = CMD_PLAY; 
@@ -273,25 +272,22 @@ void approve_join_request(int game_id, int sd, int response)
         else
         {
             selected_game->state = ST_WAITING;
-            send(sd, "CANCELLED", 10, 0);
+            int msg = MSG_CANCELLED;
+            send(sd, &msg, sizeof(int), 0);
         }
         pthread_cond_signal(&selected_game->cond_approve);
     }
     pthread_mutex_unlock(&selected_game->game_mutex);
 }
 
+
 // invia SOLO il tabellone (usata durante la partita)
 void send_board_to_socket(int sd, Game* game, int cmd) {
     char board_update[1024];
+    
     memcpy(board_update, &cmd, sizeof(int));
     sprintf(board_update + sizeof(int),
-            "\n"
-            "...0...1...2\n"              
-            "0..%c.|.%c.|.%c.\n"          
-            "..---|---|---\n"             
-            "1..%c.|.%c.|.%c.\n"          
-            "..---|---|---\n"             
-            "2..%c.|.%c.|.%c.\n",         
+           "%c%c%c%c%c%c%c%c%c",         
             game->table[0][0], game->table[0][1], game->table[0][2],
             game->table[1][0], game->table[1][1], game->table[1][2],
             game->table[2][0], game->table[2][1], game->table[2][2]);
@@ -358,33 +354,27 @@ void broadcast_game_state(Game *game, int check_error) {
     //partita finita
     if (game->state == ST_FINISHED) {
 
-        cmd_p1 = CMD_OVER;
-        cmd_p2 = CMD_OVER;
-
         int winner = check_winner(game);
         char msg_p1[100];
         char msg_p2[100];
 
         if (winner == 0) {
-            sprintf(msg_p1, "--- NON CI CREDO FUNZIONA ANCHE IL PAREGGIO ---");
-            sprintf(msg_p2, "--- NON CI CREDO FUNZIONA ANCHE IL PAREGGIO ---");
+            cmd_p1 = CMD_DRAW;
+            cmd_p2 = CMD_DRAW;
         } else if (winner == game->id_player1) {
-            sprintf(msg_p1, "🏆 Complimenti il giocatore proprietario ha vinto 🏆");
-            sprintf(msg_p2, "💀 PAR O' CAZZ  💀");
+            cmd_p1 = CMD_WIN;
+            cmd_p2 = CMD_LOSE;
         } else {
-            sprintf(msg_p1, "💀 PAR O' CAZZ 💀");
-            sprintf(msg_p2, "🏆 Complimenti il giocatore ospite ha vinto 🏆");
-            
+            cmd_p1 = CMD_LOSE;
+            cmd_p2 = CMD_WIN;
         }
 
         // Usa send_board_with_message per inviare tabellone + testo
-        send(game->id_player1, &cmd_p1, sizeof(int), 0);
-        send_board_with_message(game->id_player1, game, msg_p1);
+        send_board_to_socket(game->id_player1, game, cmd_p1);
         
 
         if (game->id_player2 != -1) {
-            send(game->id_player2, &cmd_p2, sizeof(int), 0);
-            send_board_with_message(game->id_player2, game, msg_p2);
+            send_board_to_socket(game->id_player2, game, cmd_p2);
         }
 
         return; 
@@ -410,11 +400,9 @@ void broadcast_game_state(Game *game, int check_error) {
     }
 
     // Invio Standard
-    //send(game->id_player1, &cmd_p1, sizeof(int), 0);
     send_board_to_socket(game->id_player1, game, cmd_p1);
 
     if (game->id_player2 != -1) {
-        //send(game->id_player2, &cmd_p2, sizeof(int), 0);
         send_board_to_socket(game->id_player2, game, cmd_p2);
     }
 }
@@ -474,19 +462,22 @@ int do_rematch(int game_id, int sd){
     
 
     if(!selected_game){
-        send(sd, "REMATCH_ERR_NOT_FOUND", 21, 0);
+        int err = ERR_REMATCH_NOT_FOUND;
+        send(sd, &err, sizeof(int), 0);
         printf("Rematch: partita non trovata (ID %d)\n", game_id);
         return -1;
     }
 
     if(selected_game->id_player1 != sd && selected_game->id_player2 != sd){
-        send(sd, "REMATCH_ERR_NOT_PLAYER", 22, 0);
+        int err = ERR_REMATCH_NOT_PLAYER;
+        send(sd, &err, sizeof(int), 0);
         printf("Rematch: giocatore non nella partita (ID %d)\n", game_id);
         return -1;
     }
 
     if(selected_game->state != ST_FINISHED){
-        send(sd, "REMATCH_ERR_NOT_FINISHED", 24, 0);
+        int err = ERR_REMATCH_NOT_FINISHED;
+        send(sd, &err, sizeof(int), 0);
         printf("Rematch: partita non finita (ID %d)\n", game_id);
         return -1;
     }
@@ -509,13 +500,15 @@ int rematch_by_winner(Game* game, int sd, int response){
     int cmd_message;
 
     if(game->id_player1 != sd){
-        send(sd, "REMATCH_ERR_NOT_OWNER", 21, 0);
+        int err = ERR_REMATCH_NOT_OWNER;
+        send(sd, &err, sizeof(int), 0);
         return -1;
     }
 
     //bisogna cambiare e gestire la fine della partita
     if(response != 1) {
         cmd_message = CMD_OVER;
+        remove_game_by_id(&game_vector, game->id);
         send(sd, &cmd_message, sizeof(int), 0);
         return 0;
     }
@@ -542,13 +535,15 @@ int rematch_from_both( Game* game, int sd, int response){
     if(sd == game->id_player1){
         game->rematch_status_player1 = response;
         if(response == 0) {
-            send(game->id_player2, "REMATCH_DECLINED", 16, 0);
+            int msg = MSG_REMATCH_DECLINED;
+            send(game->id_player2, &msg, sizeof(int), 0);
         }
 
     } else if (sd == game->id_player2){
         game->rematch_status_player2 = response;
         if(response == 0) {
-            send(game->id_player1, "REMATCH_DECLINED", 16, 0);
+            int msg = MSG_REMATCH_DECLINED;
+            send(game->id_player1, &msg, sizeof(int), 0);
         }
     }
 
@@ -567,6 +562,7 @@ int rematch_from_both( Game* game, int sd, int response){
         //se uno dei due ha rifiutato
         if(game->rematch_status_player1 == 0 || game->rematch_status_player2 == 0){
 
+            remove_game_by_id(&game_vector, game->id);
             pthread_mutex_unlock(&game->game_mutex);
             return -1;
         }
@@ -581,18 +577,20 @@ int rematch_from_both( Game* game, int sd, int response){
     }
     
     if(game->id_player1 == sd){
-        send(sd, "START_PLAYER1", 14, 0);
+        int msg = MSG_START_PLAYER1;
+        send(sd, &msg, sizeof(int), 0);
         usleep(100000); 
         // Inizializzazione Manuale P1 
         int cmd_p1 = CMD_PLAY; 
-        //send(sd, &cmd_p1, sizeof(int), 0);
+
         send_board_to_socket(sd, game, cmd_p1);
     } else if (game->id_player2 == sd){
-        send(sd, "START_PLAYER2", 14, 0);
+        int msg = MSG_START_PLAYER2;
+        send(sd, &msg, sizeof(int), 0);
         usleep(100000); 
         // Inizializzazione Manuale P2 
         int cmd_p2 = CMD_WAIT; 
-        //send(sd, &cmd_p2, sizeof(int), 0);
+
         send_board_to_socket(sd, game, cmd_p2);
     }
 
@@ -637,7 +635,8 @@ int game_over(Game* game, int winner_sd){
     if(winner_sd == game->id_player2){
         change_owner_game(game);
         game->id_player2 = -1;
-        send(game->id_player1, "CHANGE_OWNER", strlen("CHANGE_OWNER"), 0);
+        int msg = MSG_CHANGE_OWNER;
+        send(game->id_player1, &msg, sizeof(int), 0);
     } else if(winner_sd == game->id_player1){
         game->id_player2 = -1; 
     }
@@ -663,14 +662,13 @@ int ask_rematch(Game* game, int winner_sd){
         return -1;
     }
 
-    char msg[100];
-    sprintf(msg, "REMATCH_REQUEST");
+    int msg = MSG_REMATCH_REQUEST;
 
     if(winner_sd == 0){
-        send(game->id_player1, &msg, strlen(msg), 0);
-        send(game->id_player2, &msg, strlen(msg), 0);
+        send(game->id_player1, &msg, sizeof(int), 0);
+        send(game->id_player2, &msg, sizeof(int), 0);
     } else { //lo mando solo al proprietario (ossia il vincitore)
-        send(game->id_player1, &msg, strlen(msg), 0);
+        send(game->id_player1, &msg, sizeof(int), 0);
     } 
 
     return 0;

@@ -9,12 +9,12 @@ typedef struct game_vector_t game_vector_t;
 
 //Azioni del giocatore
 typedef enum{
-    CREATE = 1,
-    LIST = 2,
-    JOIN = 3,
-    MOVE = 4,
-    REMATCH = 5,
-    APPROVE = 6
+    CREATE,
+    LIST,
+    JOIN,
+    MOVE,
+    REMATCH,
+    APPROVE
 } Actions; 
 
 typedef enum {
@@ -43,13 +43,28 @@ typedef enum {
 
     // --- ERRORS (500+) ---
     ERR_JOIN_NOT_FOUND = 500,
-    ERR_APPROVE_NOT_FOUND = 501,
-    ERR_REMATCH_NOT_FOUND = 502,
-    ERR_REMATCH_NOT_PLAYER = 503,
-    ERR_REMATCH_NOT_FINISHED = 504,
-    ERR_REMATCH_NOT_OWNER = 505
+    ERR_JOIN_OWNER_LEFT = 501,
+    ERR_APPROVE_NOT_FOUND = 502,
+    ERR_REMATCH_NOT_FOUND = 503,
+    ERR_REMATCH_NOT_PLAYER = 504,
+    ERR_REMATCH_NOT_FINISHED = 505,
+    ERR_REMATCH_NOT_OWNER = 506
+
 
 } ResponseCode;
+
+typedef enum {
+    CMD_UNKNOWN = 0, 
+    CMD_PLAY,        
+    CMD_WAIT,        
+    CMD_OVER,        
+    CMD_WIN,         
+    CMD_DRAW,        
+    CMD_LOSE,       
+    CMD_INVALID,     
+    CMD_QUIT         
+} GameCommand;
+
 
 typedef struct Game{
     int id;
