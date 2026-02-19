@@ -7,6 +7,7 @@
 #include <assert.h>
 #include "game.h"
 #include "game_vector.h"
+#include "server.h"
 
 // Helper per creare partite al volo per i test
 Game create_mock_game(int id) {

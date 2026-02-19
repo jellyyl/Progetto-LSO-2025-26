@@ -11,8 +11,8 @@ game_vector_t game_vector;
 int list_increment_game_id = 0;
 
 void move(int game_id, int sd);
-void send_board_to_socket(int sd, Game* game, int cmd);
-void send_board_with_message(int sd, Game* game, char* msg); 
+void send_board_to_socket(int sd, Game* game, GameCommand cmd);
+
 int check_winner(Game* game);
 int create_game(int client_id);
 Game generate_game(int client_id);
@@ -281,8 +281,8 @@ void approve_join_request(int game_id, int sd, int response)
 }
 
 
-// invia SOLO il tabellone (usata durante la partita)
-void send_board_to_socket(int sd, Game* game, int cmd) {
+
+void send_board_to_socket(int sd, Game* game, GameCommand cmd) {
     char board_update[1024];
     
     memcpy(board_update, &cmd, sizeof(int));
@@ -295,25 +295,6 @@ void send_board_to_socket(int sd, Game* game, int cmd) {
     send(sd, board_update, sizeof(int) + strlen(board_update + sizeof(int)), 0);
 }
 
-// invia Tabellone + MESSAGGIO (usata a fine partita)   // NON MANDA IL COMANDO
-void send_board_with_message(int sd, Game* game, char* msg) {
-    char full_message[2048]; 
-    sprintf(full_message, 
-            "\n"
-            "...0...1...2\n"              
-            "0..%c.|.%c.|.%c.\n"          
-            "..---|---|---\n"             
-            "1..%c.|.%c.|.%c.\n"          
-            "..---|---|---\n"             
-            "2..%c.|.%c.|.%c.\n"
-            "\n%s\n", // Messaggio attaccato in fondo
-            game->table[0][0], game->table[0][1], game->table[0][2],
-            game->table[1][0], game->table[1][1], game->table[1][2],
-            game->table[2][0], game->table[2][1], game->table[2][2],
-            msg);
-
-    send(sd, full_message, strlen(full_message), 0);
-}
 
 int check_winner(Game* game)
 {
@@ -369,10 +350,8 @@ void broadcast_game_state(Game *game, int check_error) {
             cmd_p2 = CMD_WIN;
         }
 
-        // Usa send_board_with_message per inviare tabellone + testo
         send_board_to_socket(game->id_player1, game, cmd_p1);
-        
-
+    
         if (game->id_player2 != -1) {
             send_board_to_socket(game->id_player2, game, cmd_p2);
         }
@@ -458,7 +437,7 @@ void move(int game_id, int sd)
 int do_rematch(int game_id, int sd){
 
     Game* selected_game = get_game_by_id(&game_vector, game_id);
-    int response, cmd_message;
+    int response;
     
 
     if(!selected_game){
@@ -530,7 +509,8 @@ int rematch_by_winner(Game* game, int sd, int response){
 int rematch_from_both( Game* game, int sd, int response){
     
     pthread_mutex_lock(&game->game_mutex);
-    int cmd_p1, cmd_p2;
+
+
 
     if(sd == game->id_player1){
         game->rematch_status_player1 = response;
@@ -548,8 +528,14 @@ int rematch_from_both( Game* game, int sd, int response){
     }
 
     if(response == 0){
+
         pthread_mutex_unlock(&game->game_mutex);
         pthread_cond_broadcast(&game->cond_approve);
+
+        if(game->rematch_status_player1 == 0 && game->rematch_status_player2 == 0){
+            remove_game_by_id(&game_vector, game->id);
+        }
+
         return 0;
     }
 
@@ -562,8 +548,8 @@ int rematch_from_both( Game* game, int sd, int response){
         //se uno dei due ha rifiutato
         if(game->rematch_status_player1 == 0 || game->rematch_status_player2 == 0){
 
-            remove_game_by_id(&game_vector, game->id);
             pthread_mutex_unlock(&game->game_mutex);
+            remove_game_by_id(&game_vector, game->id);
             return -1;
         }
   
@@ -604,6 +590,7 @@ int rematch_from_both( Game* game, int sd, int response){
 Game generate_game(int client_id)
 {
     Game new_game;
+    //gestire il mutex per il contatore globale per gli id
     new_game.id = ++list_increment_game_id;
     new_game.id_player1 = client_id;
     new_game.id_player2 = -1; 
@@ -644,8 +631,7 @@ int game_over(Game* game, int winner_sd){
 
     usleep(50000);
 
-    ask_rematch(game, winner_sd);
-
+    return ask_rematch(game, winner_sd);
 }
 
 int change_owner_game(Game* game){

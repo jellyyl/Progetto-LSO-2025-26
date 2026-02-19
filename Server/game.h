@@ -58,9 +58,9 @@ typedef enum {
     CMD_PLAY,        
     CMD_WAIT,        
     CMD_OVER,        
-    CMD_WIN,         
-    CMD_DRAW,        
-    CMD_LOSE,       
+    CMD_WIN,  //4       
+    CMD_DRAW,    //5    
+    CMD_LOSE,       //6
     CMD_INVALID,     
     CMD_QUIT         
 } GameCommand;
@@ -71,7 +71,7 @@ typedef struct Game{
     int id_player1;
     int id_player2;
     char table[3][3]; //così char posso mettere visivamente "X" e "O"
-    int state;
+    GameState state;
     int turn; //0 player 1; 1 player 2;
     pthread_mutex_t game_mutex;
     pthread_cond_t cond_approve;
