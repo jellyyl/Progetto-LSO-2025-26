@@ -1,0 +1,11 @@
+# Git
+.git
+.gitignore
+
+# File oggetto e compilati
+*.o
+server_exec
+
+# File Docker (non serve copiarli nell'immagine)
+Dockerfile
+docker-compose.yml

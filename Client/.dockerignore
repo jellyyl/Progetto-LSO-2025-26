@@ -1,0 +1,20 @@
+# Git
+.git
+.gitignore
+
+# Python cache e lock files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# File Docker (non serve copiarli nell'immagine)
+Dockerfile
+docker-compose.yml
