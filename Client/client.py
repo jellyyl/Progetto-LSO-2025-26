@@ -1,8 +1,6 @@
 import gui.interface as gui
 import network.socket as net
 import socket
-import re
-import random
 from enum import IntEnum
 
 # ---------------------------- CONFIG ----------------------------
@@ -14,7 +12,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    # Socket del client
 game_id = None      # ID della partita che si sta giocando
 agg_var = None
 
-# ---------------------------- ENUMS ----------------------------
+# ----------------------------- ENUM -----------------------------
 class Actions(IntEnum):
     CREATE = 0
     LIST = 1
@@ -22,6 +20,7 @@ class Actions(IntEnum):
     MOVE = 3
     REMATCH = 4
     APPROVE = 5
+    CANCEL = 6
 
 class ResponseCode(IntEnum):
     MSG_JOIN_OK = 200
@@ -67,34 +66,39 @@ def on_start():
     gui.root.after(1400, connetti)
 
 def on_crea_partita():
-    disattiva_aggiornamento()
     global game_id
+    disattiva_aggiornamento()
     net.invia_intero(sock, Actions.CREATE)
+    attendi_sfidante()
+
+def attendi_sfidante():
+    global game_id
+    print(game_id)
     scelta = 1
     while(scelta == 1):
         finestra_attesa = gui.mostra_attesa("In attesa di un giocatore")
 
-        raw = net.richiedi_dato(sock, gui.root, None)
-        if raw is None: return
+        raw = net.richiedi_dato(sock, gui.root)
+        if raw is None: 
+            return
 
         req = net.raw_a_int(raw[0:4])
+
         # The join request logic in server: sends [MSG_JOIN_REQUEST, game_id] (2 ints)
         if req == ResponseCode.MSG_JOIN_REQUEST:
             game_id = net.raw_a_int(raw[4:8])
-            scelta = gui.mostra_scelta("Un giocatore vuole unirsi") - 1
+            scelta = gui.mostra_scelta("Un giocatore vuole unirsi")
 
             net.invia_intero(sock, Actions.APPROVE)
             net.invia_intero(sock, game_id)
             net.invia_intero(sock, scelta)
 
         if(scelta == 0):
-            raw_conf = net.richiedi_dato(sock, gui.root, None)
-            conferma = net.raw_a_int(raw_conf[0:4])
+            conferma = net.richiedi_intero(sock, gui.root)
             if conferma == ResponseCode.MSG_START_PLAYER1:
                 gui.nascondi_finestra(finestra_attesa)
                 finestra = gui.mostra_partita('X', on_click_cella)
                 loop_partita(0, finestra)
-                
 
 def on_connetti(partita):
     disattiva_aggiornamento()
@@ -105,8 +109,7 @@ def on_connetti(partita):
     net.invia_intero(sock, id_partita)
 
     finestra_attesa = gui.mostra_attesa("In attesa di conferma")
-    raw_conf = net.richiedi_dato(sock, gui.root, None)
-    conferma = net.raw_a_int(raw_conf[0:4])
+    conferma = net.richiedi_intero(sock, gui.root)
     
     gui.nascondi_finestra(finestra_attesa)
     
@@ -165,7 +168,7 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 0 se creatore, 1
     
     # Loop finché non arriva un comando terminale o quit
     while cmd not in [GameCommand.WIN, GameCommand.LOSE, GameCommand.DRAW, GameCommand.QUIT]:
-        cmd_raw = net.richiedi_dato(sock, gui.root, None)
+        cmd_raw = net.richiedi_dato(sock, gui.root)
         if cmd_raw is None: 
             break
             
@@ -193,19 +196,54 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 0 se creatore, 1
                 if(str_griglia != ""):
                     aggiorna_griglia(str_griglia)
 
-                if end_cmd == GameCommand.WIN:
-                    gui.aggiorna_label_partita("Hai vinto!", "#5ECF4D", False)
-                elif end_cmd == GameCommand.LOSE:
-                    gui.aggiorna_label_partita("Hai perso!", "#ff4d4d", False)
-                elif end_cmd == GameCommand.DRAW:
-                    gui.aggiorna_label_partita("Pareggio!", "#CCCCCC", False)
+                match(end_cmd):
+                    case GameCommand.WIN:
+                        gui.aggiorna_label_partita("Hai vinto!", "#5ecf4d", False)
+                    case GameCommand.LOSE:
+                        gui.aggiorna_label_partita("Hai perso!", "#ff4d4d", False)
+                    case GameCommand.DRAW:
+                        gui.aggiorna_label_partita("Pareggio!", "#aaaaaa", False)
                 
-                def nascondi_partita():
+                def gestisci_rematch():
                     gui.nascondi_finestra(finestra_partita)
-                    gui.mostra_errore("REMATCH DA GESTIRE", "OK", on_esci_errore)
+                    if(end_cmd != GameCommand.LOSE): 
+                        msg = net.richiedi_intero(sock, gui.root)
+                        print(msg)
+                        add_text = ""
+                        if(msg == ResponseCode.MSG_CHANGE_OWNER):
+                            add_text = "Sei diventato il proprietario della partita! "
+                            msg = net.richiedi_intero(sock, gui.root)
 
-                gui.root.after(2000, nascondi_partita)
-                # QUA GESTIRE REMATCH
+                        if(msg == ResponseCode.MSG_REMATCH_REQUEST):
+                            print(msg)
+                            scelta = 1 - gui.mostra_scelta((add_text + "Vuoi rimanere in attesa di un nuovo sfidante?") 
+                                                            if end_cmd != GameCommand.DRAW 
+                                                            else "Vuoi rigiocare con questo sfidante?")  # "1-" da levare
+                            net.invia_intero(sock, Actions.REMATCH)
+                            net.invia_intero(sock, game_id)
+                            net.invia_intero(sock, scelta)
+                            if(end_cmd == GameCommand.DRAW and scelta == 1):
+                                finestra_attesa = gui.mostra_attesa("Attendendo la risposta dello sfidante")
+                                msg = net.richiedi_intero(sock, gui.root)
+                                gui.nascondi_finestra(finestra_attesa)
+
+                                if(msg == ResponseCode.MSG_REMATCH_DECLINED):
+                                    gui.mostra_errore("Lo sfidante ha rifiutato")
+                                elif(msg == ResponseCode.MSG_START_PLAYER1):
+                                    new_finestra = gui.mostra_partita('X', on_click_cella)
+                                    loop_partita(1, new_finestra)
+                                elif(msg == ResponseCode.MSG_START_PLAYER2):
+                                    new_finestra = gui.mostra_partita('O', on_click_cella)
+                                    loop_partita(0, new_finestra)
+                            else:
+                                if(scelta == 1):
+                                    attendi_sfidante()
+                                else:
+                                    attiva_aggiornamento()
+                    else:
+                        attiva_aggiornamento() # GESTIRE ATTIVA AGGIORNAMENTO DOPO REMATCH
+
+                gui.root.after(2000, gestisci_rematch)
 
             case GameCommand.INVALID:   
                 print("Mossa Non Valida")
@@ -219,6 +257,7 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 0 se creatore, 1
     print("PARTITA TERMINATA")       
 
 def invia_mossa(r, c):
+    global game_id
     net.invia_intero(sock, Actions.MOVE)
     net.invia_intero(sock, game_id)
     net.invia_intero(sock, r)
@@ -231,7 +270,8 @@ def attiva_aggiornamento():
 
 def disattiva_aggiornamento():
     global agg_var
-    gui.root.after_cancel(agg_var)
+    if(agg_var != None):
+        gui.root.after_cancel(agg_var)
 
 # ----------------------------- MAIN -----------------------------
 gui.root.after(200, on_start)

@@ -117,7 +117,7 @@ def mostra_home(str_partite, on_crea_partita, on_connetti, on_esci, on_focus, on
 
     btn_crea = ttk.Button(
         top_frame,
-        text="➕ Crea partita",
+        text="+ Crea partita",
         style="Header.TButton",
         command=on_crea_partita
     )
@@ -254,14 +254,14 @@ def mostra_scelta(messaggio, testo_btn1="Accetta", testo_btn2="Rifiuta"): # Rest
         btn_frame,
         text=testo_btn1,
         style="Header.TButton",
-        command=lambda: scegli(1)
+        command=lambda: scegli(0)
     ).pack(side="left", padx=10)
 
     ttk.Button(
         btn_frame,
         text=testo_btn2,
         style="Header2.TButton",
-        command=lambda: scegli(2)
+        command=lambda: scegli(1)
     ).pack(side="left", padx=10)
 
     gestisci_riduzione_a_icona(scelta)

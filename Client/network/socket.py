@@ -33,7 +33,6 @@ def svuota_buffer(sock):
 
 def richiedi_dato(sock, root, timeout=None):  # Passa anche l'interfaccia in modo tale da non bloccarla
     if(sock != None):                         # timeout = None: socket bloccante
-        # svuota_buffer(sock)
         sock.settimeout(timeout)
         risultato = None
         done = threading.Event()
@@ -57,6 +56,9 @@ def richiedi_dato(sock, root, timeout=None):  # Passa anche l'interfaccia in mod
             except tkinter.TclError:
                 break
         return risultato
+    
+def richiedi_intero(sock, root, timeout=None):
+    return raw_a_int(richiedi_dato(sock, root, timeout))
     
 def raw_a_int(dati_raw):
     if(dati_raw != None):
