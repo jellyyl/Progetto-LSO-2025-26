@@ -81,6 +81,14 @@ void game_action(void *arg)
             approve_join_request(game_id, sd, response);
             break;
         }
+        case CANCEL:
+        {
+            int game_id;
+            if (recv(sd, &game_id, sizeof(int), 0) <= 0) 
+                break; 
+            quit_game(client_id, game_id);
+            break;
+        }
         default:
             break;
         }
@@ -159,13 +167,6 @@ int create_game(int client_id)
     Game *inserted_game = get_game_by_id(&game_vector, new_game.id);
 
     if(inserted_game != NULL){
-        pthread_mutex_lock(&inserted_game->game_mutex);
-        
-        printf("Player 1 (ID %d) bloccato in attesa di sfidanti...\n", client_id);
-        while (inserted_game->state == ST_WAITING) {
-            pthread_cond_wait(&inserted_game->cond_wait_P1, &inserted_game->game_mutex);
-        }
-        pthread_mutex_unlock(&inserted_game->game_mutex);
         return new_game.id;
     } else{
         printf("Errore nell'inserimento della nuova partita.\n");
@@ -217,25 +218,18 @@ void join_game(int client_id, int game_id, int sd)
         return;
     }
     
-    pthread_cond_signal(&selected_game->cond_wait_P1);
-
     while (selected_game->state == ST_APPROVE) {
         pthread_cond_wait(&selected_game->cond_approve, &selected_game->game_mutex);
     }
 
+    // La richiesta è stata accettata da p1
     if (selected_game->state == ST_PLAYING) {
         int msg = MSG_JOIN_OK;
         send(sd, &msg, sizeof(int), 0);
         usleep(100000);
         int cmd = CMD_WAIT; 
         send_board_to_socket(sd, selected_game, cmd);
-    } 
-    else if (selected_game->state == ST_FINISHED) {
-        
-        int err = MSG_JOIN_DENIED;
-        send(sd, &err, sizeof(int), 0);
-        selected_game->id_player2 = -1;
-    }
+    } //richiesta rifiutata
     else {
         int err = MSG_JOIN_DENIED;
         send(sd, &err, sizeof(int), 0);
@@ -389,7 +383,6 @@ void broadcast_game_state(Game *game, int check_error) {
 void move(int game_id, int sd)
 {
     int row, col;
-    int check_error = 0;
     
     if (recv(sd, &row, sizeof(int), 0) <= 0 || recv(sd, &col, sizeof(int), 0) <= 0) return;
 
@@ -397,20 +390,10 @@ void move(int game_id, int sd)
     if (selected_game == NULL) return;
 
     pthread_mutex_lock(&selected_game->game_mutex);
-
-    // Controllo Limiti
-    if (row < 0 || row > 2 || col < 0 || col > 2) {
-        check_error = 1; 
-        broadcast_game_state(selected_game, check_error); 
-        pthread_mutex_unlock(&selected_game->game_mutex);
-        return;
-    }
-
-    // Controllo Validità Mossa
-    int current_player_sd = (selected_game->turn % 2 == 0) ? selected_game->id_player1 : selected_game->id_player2;
-    if (selected_game->table[row][col] != ' ' || sd != current_player_sd) {
-        check_error = 1; 
-        broadcast_game_state(selected_game, check_error); 
+    
+    //Controllo se la cella è vuota e se è il turno del giocatore
+    if (!is_move_valid(selected_game, row, col, sd)) {
+        broadcast_game_state(selected_game, 1); 
         pthread_mutex_unlock(&selected_game->game_mutex);
         return;
     }
@@ -431,6 +414,28 @@ void move(int game_id, int sd)
     }
 
     pthread_mutex_unlock(&selected_game->game_mutex);
+}
+
+int is_move_valid(Game* game, int row, int col, int player_sd){
+
+    // 1. Controllo Limiti della griglia
+    if (row < 0 || row > 2 || col < 0 || col > 2) {
+        return 0; 
+    }
+
+    // 2. Controllo Turno
+    int current_turn_sd = (game->turn % 2 == 0) ? game->id_player1 : game->id_player2;
+    if (player_sd != current_turn_sd) {
+        return 0;
+    }
+
+    // 3. Controllo Cella Vuota
+    if (game->table[row][col] != ' ') {
+        return 0;
+    }
+
+    return 1; // La mossa è valida
+    
 }
 
 
@@ -562,6 +567,7 @@ int rematch_from_both( Game* game, int sd, int response){
         game->state = ST_PLAYING;  
     }
     
+    //valutare una funzione start_game
     if(game->id_player1 == sd){
         int msg = MSG_START_PLAYER1;
         send(sd, &msg, sizeof(int), 0);
