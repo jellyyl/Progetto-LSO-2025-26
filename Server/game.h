@@ -14,7 +14,8 @@ typedef enum{
     JOIN,
     MOVE,
     REMATCH,
-    APPROVE
+    APPROVE,
+    CANCEL
 } Actions; 
 
 typedef enum {
