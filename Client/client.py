@@ -3,9 +3,11 @@ import network.socket as net
 import socket
 from enum import IntEnum
 
+import os
+
 # ---------------------------- CONFIG ----------------------------
-ip = "127.0.0.1"
-porta = 5200
+ip = os.getenv("SERVER_IP", "127.0.0.1")
+porta = int(os.getenv("SERVER_PORT", "5200"))
 
 # ---------------------------- GLOBAL ----------------------------
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    # Socket del client

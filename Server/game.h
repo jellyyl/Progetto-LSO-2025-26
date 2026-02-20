@@ -83,7 +83,7 @@ typedef struct Game{
 
 extern game_vector_t game_vector;
 
-void game_action(void *arg);
+void *game_action(void *arg);
 void get_list_game(int sd);
 int create_game(int client_id);
 Game generate_game(int client_id);

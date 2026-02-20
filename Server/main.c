@@ -11,8 +11,14 @@
 
 int main() {
     
+    int port = 5200;
+    char *env_port = getenv("PORT");
+    if (env_port != NULL) {
+        port = atoi(env_port); //converte stringa in intero
+    }
+    
     int sd;
-    sd = start_server(5200, 5);
+    sd = start_server(port, 5);
     init_game_session();
 
     while(1) {

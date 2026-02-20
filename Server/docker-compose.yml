@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  server:
+    build: .
+    container_name: tris_server
+    ports:
+      # esporre su una porta host diversa
+      - "${PORT:-5200}:${PORT:-5200}"
+    environment:
+      # Variabile d'ambiente letta dal server C
+      - PORT=${PORT:-5200}
+    restart: unless-stopped #si riavvia a meno che non venga fermato manualmente

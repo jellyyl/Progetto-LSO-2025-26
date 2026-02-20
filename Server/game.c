@@ -23,7 +23,7 @@ void broadcast_game_state(Game *game, int check_error);
 void quit_game(int disconnected_player, int game_id);
 
 // Funzione principale che gestisce le azioni dell'utente
-void game_action(void *arg)
+void* game_action(void *arg)
 {
     int client_id = *(int *)arg;
     int sd = client_id; 
@@ -31,6 +31,12 @@ void game_action(void *arg)
     while (1)
     {
         int action = 0;
+
+        for(int i=0; i < game_vector.size; i++) {
+            if (game_vector.vector[i] != NULL) {
+                printf(" %d; %d; %d;\n", game_vector.vector[i]->id, game_vector.vector[i]->id_player1, game_vector.vector[i]->state);
+            }
+        }
         //ogni volta controllo la disconnessione 
         if (recv(sd, &action, sizeof(int), 0) <= 0) {
             quit_game(sd, current_game_id); 
@@ -93,6 +99,8 @@ void game_action(void *arg)
             break;
         }
     }
+
+    return NULL;
 }
 
 void init_game_session(){
@@ -499,11 +507,7 @@ int rematch_by_winner(Game* game, int sd, int response){
     pthread_mutex_lock(&game->game_mutex);
 
     clear_game(game);
-
     printf("Player 1 (ID %d) bloccato in attesa di sfidanti...\n", sd);
-    while (game->state == ST_WAITING) {
-        pthread_cond_wait(&game->cond_wait_P1, &game->game_mutex);
-    }
     pthread_mutex_unlock(&game->game_mutex);
 
     return 0;
