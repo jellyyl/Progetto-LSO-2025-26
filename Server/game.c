@@ -468,7 +468,6 @@ int do_rematch(int game_id, int sd){
 
     recv(sd, &response, sizeof(int), 0);
 
-
     //significa che c'è stato un vincitore
     if(selected_game->id_player2 == -1){
         rematch_by_winner(selected_game, sd, response);
@@ -514,8 +513,6 @@ int rematch_by_winner(Game* game, int sd, int response){
 int rematch_from_both( Game* game, int sd, int response){
     
     pthread_mutex_lock(&game->game_mutex);
-
-
 
     if(sd == game->id_player1){
         game->rematch_status_player1 = response;
@@ -563,8 +560,8 @@ int rematch_from_both( Game* game, int sd, int response){
 
     if (game->state != ST_PLAYING) {
         printf("Entrambi i giocatori hanno accettato la rivincita per la partita %d!\n", game->id);
-        clear_game(game);          // Attenzione: questo resetta i flag a -1
-        game->state = ST_PLAYING;  
+        clear_game(game);          
+        game->state = ST_PLAYING;
     }
     
     //valutare una funzione start_game
