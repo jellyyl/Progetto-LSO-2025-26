@@ -96,6 +96,8 @@ void* game_action(void *arg)
             if (recv(sd, &game_id, sizeof(int), 0) <= 0) 
                 break; 
             quit_game(client_id, game_id);
+            int msg = MSG_CANCELLED;
+            send(sd, &msg, sizeof(int), 0);
             break;
         }
         default:
@@ -127,7 +129,11 @@ void get_list_game(int sd)
             strcat(buffer, game_info);
         }
     }
-    send(sd, buffer, strlen(buffer), 0);
+    if (strlen(buffer) == 0) {
+        send(sd, " ", 1, 0);
+    } else {
+        send(sd, buffer, strlen(buffer), 0);
+    }
 }
 
 void quit_game(int disconnected_player, int game_id){
@@ -142,7 +148,7 @@ void quit_game(int disconnected_player, int game_id){
 
     if(game->state == ST_WAITING){
         game->state = ST_FINISHED;
-        printf("P1 si è disconnesso dalla lobby %d. Partita chiusa.\n", game_id);
+        printf("P1 ha annullato la partita oppure si è disconnesso dalla lobby %d. Partita chiusa.\n", game_id);
         pthread_cond_broadcast(&game->cond_wait_P1);
     }
     else if(game->state == ST_APPROVE || game->state == ST_PLAYING){
@@ -327,7 +333,7 @@ int check_winner(Game* game)
     }
 
     if (!empty_found) return 0; 
-    return -1; 
+    return 0; 
 }
 
 void broadcast_game_state(Game *game, int check_error) {
@@ -549,16 +555,17 @@ int rematch_from_both( Game* game, int sd, int response){
     // il primo che si libera, pulisce il game e i status tornano a -1, è necessario quindi mettere la terza condizione nel while
     while ((game->rematch_status_player1 == -1 || game->rematch_status_player2 == -1) && game->state != ST_PLAYING) {
         pthread_cond_wait(&game->cond_approve, &game->game_mutex); //aspetta e sblocca il mutex "mentre dorme"
-
-        //se uno dei due ha rifiutato
-        if(game->rematch_status_player1 == 0 || game->rematch_status_player2 == 0){
-
-            pthread_mutex_unlock(&game->game_mutex);
-            remove_game_by_id(&game_vector, game->id);
-            return -1;
-        }
-  
     }
+
+    //se uno dei due ha rifiutato
+    if(game->rematch_status_player1 == 0 || game->rematch_status_player2 == 0){
+        printf("ho cancellato la partita");
+        pthread_mutex_unlock(&game->game_mutex);
+        remove_game_by_id(&game_vector, game->id);
+        return -1;
+    }
+
+
     printf("Entrambi i giocatori hanno accettato la rivincita per la partita %d!\n", game->id);
 
     if (game->state != ST_PLAYING) {

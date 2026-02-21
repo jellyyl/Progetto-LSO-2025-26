@@ -76,31 +76,57 @@ def on_crea_partita():
 
 def attendi_sfidante():
     global game_id
-    scelta = 1
-    while(scelta == 1):
-        finestra_attesa = gui.mostra_attesa("In attesa di un giocatore", on_esci_partita)
+    
+    def on_annulla():
+        net.invia_intero(sock, Actions.CANCEL)
+        net.invia_intero(sock, game_id)
+        
+    finestra_attesa = gui.mostra_attesa("In attesa di un giocatore", on_annulla)
 
+    while True:
         raw = net.richiedi_dato(sock, gui.root)
-        if raw is None: 
-            return
+        if raw is None or len(raw) < 4: 
+            break
 
         req = net.raw_a_int(raw[0:4])
 
+        if req == ResponseCode.MSG_CANCELLED:
+            try:
+                gui.nascondi_finestra(finestra_attesa)
+            except Exception:
+                pass
+            attiva_aggiornamento()
+            return
+
         # The join request logic in server: sends [MSG_JOIN_REQUEST, game_id] (2 ints)
         if req == ResponseCode.MSG_JOIN_REQUEST:
-            game_id = net.raw_a_int(raw[4:8])
+            if len(raw) >= 8:
+                game_id = net.raw_a_int(raw[4:8])
+            
+            try:
+                gui.nascondi_finestra(finestra_attesa)
+            except Exception:
+                pass
+
             scelta = gui.mostra_scelta("Un giocatore vuole unirsi")
 
             net.invia_intero(sock, Actions.APPROVE)
             net.invia_intero(sock, game_id)
             net.invia_intero(sock, scelta)
 
-        if(scelta == 0):
-            conferma = net.richiedi_intero(sock, gui.root)
-            gui.nascondi_finestra(finestra_attesa)
-            if conferma == ResponseCode.MSG_START_PLAYER1:
-                finestra = gui.mostra_partita('X', on_click_cella, on_esci_partita)
-                loop_partita('X', finestra)
+            if scelta == 0:
+                conferma = net.richiedi_intero(sock, gui.root)
+                if conferma == ResponseCode.MSG_START_PLAYER1:
+                    finestra = gui.mostra_partita('X', on_click_cella, on_esci_partita)
+                    loop_partita('X', finestra)
+                    return
+                # if rejected by server, we just reopen the waiting window
+                finestra_attesa = gui.mostra_attesa("In attesa di un giocatore", on_annulla)
+            else:
+                # We rejected. The server replies with MSG_CANCELLED, we read it
+                conferma = net.richiedi_intero(sock, gui.root)
+                # Reopen waiting window for the next player
+                finestra_attesa = gui.mostra_attesa("In attesa di un giocatore", on_annulla)
 
 def on_connetti(partita):
     disattiva_aggiornamento()
@@ -120,8 +146,10 @@ def on_connetti(partita):
         loop_partita('O', finestra)
     elif conferma == ResponseCode.MSG_JOIN_DENIED:
         gui.mostra_errore("L'host ha rifiutato")
+        attiva_aggiornamento()
     else:
         gui.mostra_errore("Si è verificato un errore")
+        attiva_aggiornamento()
 
 def on_click_cella(r, c):
     invia_mossa(r, c)
@@ -166,6 +194,11 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
             break
             
         cmd = net.raw_a_int(cmd_raw[0:4])
+
+        if cmd == ResponseCode.MSG_CANCELLED:
+            attiva_aggiornamento()
+            break
+
         str_griglia = ""
 
         match(cmd):
