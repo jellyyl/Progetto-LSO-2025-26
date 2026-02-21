@@ -39,7 +39,9 @@ void* game_action(void *arg)
         }
         //ogni volta controllo la disconnessione 
         if (recv(sd, &action, sizeof(int), 0) <= 0) {
+            printf("Socket %d disconnesso. Partita %d terminata forzatamente.\n", sd, current_game_id);
             quit_game(sd, current_game_id); 
+            close(sd);
             break; 
         }
         
@@ -133,7 +135,6 @@ void quit_game(int disconnected_player, int game_id){
     Game *game = get_game_by_id(&game_vector, game_id);
     if (game == NULL){
         printf("Errore nella ricerca della partita (ID %d).\n", game_id);
-        close(disconnected_player);
         return;
     }
 
@@ -158,15 +159,12 @@ void quit_game(int disconnected_player, int game_id){
         }
         
         game->state = ST_FINISHED; 
-        printf("Socket %d disconnesso. Partita %d terminata forzatamente.\n", disconnected_player, game->id);
-        
-       
+  
         pthread_cond_broadcast(&game->cond_approve);
     }    
     pthread_mutex_unlock(&game->game_mutex);
     
     remove_game_by_id(&game_vector, game_id);
-    close(disconnected_player);
 }
 
 int create_game(int client_id)
