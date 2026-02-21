@@ -104,7 +104,7 @@ def aggiorna_partite(str_newpartite, on_connetti):
                 
         home_canvas.configure(scrollregion=home_canvas.bbox("all"))
 
-def mostra_home(str_partite, on_crea_partita, on_connetti, on_esci, on_focus, on_unfocus):
+def mostra_home(str_partite, on_crea_partita, on_connetti, on_esci):
     # Finestra Principale
     setup_style(root)
     root.title("Home")
@@ -130,9 +130,6 @@ def mostra_home(str_partite, on_crea_partita, on_connetti, on_esci, on_focus, on
         command=on_esci
     )
     btn_esci.pack(side="right", padx=0, pady=6)
-
-    root.bind("<FocusIn>", lambda e: on_focus(e) if e.widget is root else None)
-    root.bind("<FocusOut>", lambda e: on_unfocus(e) if e.widget is root else None)
 
     # Scrollbar
     container = ttk.Frame(root)
@@ -174,10 +171,11 @@ def mostra_home(str_partite, on_crea_partita, on_connetti, on_esci, on_focus, on
     # Pannello Partite
     aggiorna_partite(str_partite, on_connetti)
 
+    root.protocol("WM_DELETE_WINDOW", on_esci)
     root.iconphoto(True, icona)
     root.mainloop()
 
-def mostra_attesa(messaggio):
+def mostra_attesa(messaggio, on_annulla=None):
     attesa = tk.Toplevel(root)
     attesa.title("In attesa...")
     attesa.geometry(calcola_geometria(320, 130))
@@ -207,11 +205,25 @@ def mostra_attesa(messaggio):
 
     animazione_puntini()
 
-    ttk.Button(
-        main,
-        text="Annulla",
-        command=attesa.destroy
-    ).pack(pady=8)
+    def eliminaanimazione_and_onannulla():
+        global anim_id
+        if anim_id is not None:
+            try:
+                root.after_cancel(anim_id)
+            except tk.TclError:
+                pass
+            anim_id = None
+        on_annulla()
+
+    if(on_annulla != None):
+        ttk.Button(
+            main,
+            text="Annulla",
+            command=eliminaanimazione_and_onannulla
+        ).pack(pady=8)
+        attesa.protocol("WM_DELETE_WINDOW", eliminaanimazione_and_onannulla)
+    else:
+        attesa.protocol("WM_DELETE_WINDOW", lambda: None)
 
     gestisci_riduzione_a_icona(attesa)
     attesa.iconphoto(True, icona)
@@ -298,12 +310,12 @@ def mostra_errore(messaggio, testo_btn1="OK", on_press=lambda: None, on_esci=Non
         font=("Segoe UI", 11)
     ).pack(side="left", fill="x", expand=True)
 
+    btn_frame = ttk.Frame(main)
+    btn_frame.pack(pady=10)
+
     def destroy_and_onpress():
         errore.destroy()
         on_press()
-
-    btn_frame = ttk.Frame(main)
-    btn_frame.pack(pady=10)
 
     ttk.Button(
         btn_frame,
@@ -360,7 +372,7 @@ def abilita_griglia_partita():
         if(tris_canvas.gettags(i)[0] == "0"):
             tris_canvas.itemconfig(i, state="normal")
 
-def mostra_partita(simbolo_giocatore, on_click_cella):
+def mostra_partita(giocatore, on_click_cella, on_esci):
     partita = tk.Toplevel(root)
     partita.title("Tris")
     partita.geometry(calcola_geometria(360, 380))
@@ -385,7 +397,7 @@ def mostra_partita(simbolo_giocatore, on_click_cella):
 
     # Disegno cella cliccata e chiamata evento
     def click_cella(r, c):
-        riempi_cella_partita(simbolo_giocatore, r, c)
+        riempi_cella_partita(giocatore, r, c)
         on_click_cella(r, c)
 
     # Disegno celle
@@ -432,6 +444,11 @@ def mostra_partita(simbolo_giocatore, on_click_cella):
     label_turno.pack(anchor="n", pady=(6, 8))
 
     gestisci_riduzione_a_icona(partita)
+
+    def onesci_and_delete():
+        on_esci()
+        nascondi_finestra(partita)
+    partita.protocol("WM_DELETE_WINDOW", onesci_and_delete)
     partita.iconphoto(True, icona)
     return partita
 

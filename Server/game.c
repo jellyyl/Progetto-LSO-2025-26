@@ -47,6 +47,7 @@ void* game_action(void *arg)
         {
         case CREATE:
             current_game_id = create_game(client_id);
+            send(sd, &current_game_id, sizeof(int), 0);
             break;
         case LIST:
             get_list_game(sd);

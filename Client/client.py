@@ -2,7 +2,6 @@ import gui.interface as gui
 import network.socket as net
 import socket
 from enum import IntEnum
-
 import os
 
 # ---------------------------- CONFIG ----------------------------
@@ -12,7 +11,7 @@ porta = int(os.getenv("SERVER_PORT", "5200"))
 # ---------------------------- GLOBAL ----------------------------
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    # Socket del client
 game_id = None      # ID della partita che si sta giocando
-agg_var = None
+agg_id = None
 
 # ----------------------------- ENUM -----------------------------
 class Actions(IntEnum):
@@ -55,13 +54,14 @@ class GameCommand(IntEnum):
 
 # ---------------------------- EVENTI ----------------------------
 def on_start():
-    attesa = gui.mostra_attesa("Connettendo")
+    attesa = gui.mostra_attesa("Connettendo", on_esci)
 
     def connetti():
         conn_test = net.connetti_socket(sock, ip, porta)
+
         gui.nascondi_finestra(attesa)
         if(conn_test == -1):
-            gui.mostra_errore("Connessione al server fallita", "Riprova", on_start, on_esci_errore)
+            gui.mostra_errore("Connessione al server fallita", "Riprova", on_start, on_esci)
         else:
             attiva_aggiornamento()
 
@@ -71,14 +71,14 @@ def on_crea_partita():
     global game_id
     disattiva_aggiornamento()
     net.invia_intero(sock, Actions.CREATE)
+    game_id = net.richiedi_intero(sock, gui.root)
     attendi_sfidante()
 
 def attendi_sfidante():
     global game_id
-    print(game_id)
     scelta = 1
     while(scelta == 1):
-        finestra_attesa = gui.mostra_attesa("In attesa di un giocatore")
+        finestra_attesa = gui.mostra_attesa("In attesa di un giocatore", on_esci_partita)
 
         raw = net.richiedi_dato(sock, gui.root)
         if raw is None: 
@@ -97,10 +97,10 @@ def attendi_sfidante():
 
         if(scelta == 0):
             conferma = net.richiedi_intero(sock, gui.root)
+            gui.nascondi_finestra(finestra_attesa)
             if conferma == ResponseCode.MSG_START_PLAYER1:
-                gui.nascondi_finestra(finestra_attesa)
-                finestra = gui.mostra_partita('X', on_click_cella)
-                loop_partita(0, finestra)
+                finestra = gui.mostra_partita('X', on_click_cella, on_esci_partita)
+                loop_partita('X', finestra)
 
 def on_connetti(partita):
     disattiva_aggiornamento()
@@ -116,44 +116,35 @@ def on_connetti(partita):
     gui.nascondi_finestra(finestra_attesa)
     
     if conferma == ResponseCode.MSG_JOIN_OK:
-        finestra = gui.mostra_partita('O', on_click_cella)
-        loop_partita(1, finestra)
+        finestra = gui.mostra_partita('O', on_click_cella, on_esci_partita)
+        loop_partita('O', finestra)
     elif conferma == ResponseCode.MSG_JOIN_DENIED:
         gui.mostra_errore("L'host ha rifiutato")
     else:
         gui.mostra_errore("Si è verificato un errore")
-    gui.nascondi_finestra(finestra_attesa)
 
 def on_click_cella(r, c):
     invia_mossa(r, c)
 
+def on_esci_partita():
+    net.invia_intero(sock, Actions.CANCEL)
+    net.invia_intero(sock, game_id)
+
 def on_esci():
-    net.chiudi_socket(sock)
     disattiva_aggiornamento()
-    gui.root.destroy()
-    exit()
-
-def on_esci_errore():
     net.chiudi_socket(sock)
     gui.root.destroy()
-    exit()
-
-def on_focus(event):
-    pass
-    # gui.attiva_aggiornamento()
-    # print("Focus su home")
-
-def on_unfocus(event):
-    pass
-    # gui.disattiva_aggiornamento()
-    # print("Unfocus su home")
+    os._exit(0)
 
 # --------------------------- FUNZIONI ---------------------------
 def aggiorna_partite():
     net.invia_intero(sock, Actions.LIST)
     stringa_raw = net.richiedi_dato(sock, gui.root, 1)
     stringa_partite = net.raw_a_string(stringa_raw) if stringa_raw != None else ""
-    gui.aggiorna_partite(stringa_partite, on_connetti)
+    try:
+        gui.aggiorna_partite(stringa_partite, on_connetti)
+    except gui.tk.TclError:
+        pass
 
 def aggiorna_griglia(str_griglia): # Da rimuovere in seguito (arriverà dal server la stringa già pulita)
     for i in range(0, 9):
@@ -165,7 +156,7 @@ def aggiorna_griglia(str_griglia): # Da rimuovere in seguito (arriverà dal serv
             y = cella[1]
             gui.riempi_cella_partita(str_griglia[i], x, y)
 
-def loop_partita(giocatore, finestra_partita):    # giocatore = 0 se creatore, 1 se sfidante
+def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore, 'O' se sfidante
     cmd = GameCommand.UNKNOWN
     
     # Loop finché non arriva un comando terminale o quit
@@ -183,14 +174,14 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 0 se creatore, 1
                 if(str_griglia != ""):
                     aggiorna_griglia(str_griglia)
                 gui.abilita_griglia_partita()
-                gui.aggiorna_label_partita("È il tuo turno", "#ff4d4d" if giocatore == 0 else "#4da6ff", False)
+                gui.aggiorna_label_partita("È il tuo turno", "#ff4d4d" if giocatore == 'X' else "#4da6ff", False)
                 
             case GameCommand.WAIT:
                 gui.disabilita_griglia_partita()
                 str_griglia = net.raw_a_string(cmd_raw[4:4096])
                 if(str_griglia != ""):
                     aggiorna_griglia(str_griglia)
-                gui.aggiorna_label_partita("Turno dell'avversario", "#ff4d4d" if giocatore == 1 else "#4da6ff", True)
+                gui.aggiorna_label_partita("Turno dell'avversario", "#ff4d4d" if giocatore == 'O' else "#4da6ff", True)
             
             case GameCommand.WIN | GameCommand.LOSE | GameCommand.DRAW as end_cmd:
                 gui.disabilita_griglia_partita()
@@ -231,12 +222,13 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 0 se creatore, 1
 
                                 if(msg == ResponseCode.MSG_REMATCH_DECLINED):
                                     gui.mostra_errore("Lo sfidante ha rifiutato")
+                                    attiva_aggiornamento()
                                 elif(msg == ResponseCode.MSG_START_PLAYER1):
-                                    new_finestra = gui.mostra_partita('X', on_click_cella)
-                                    loop_partita(1, new_finestra)
+                                    new_finestra = gui.mostra_partita('X', on_click_cella, on_esci_partita)
+                                    loop_partita('X', new_finestra)
                                 elif(msg == ResponseCode.MSG_START_PLAYER2):
-                                    new_finestra = gui.mostra_partita('O', on_click_cella)
-                                    loop_partita(0, new_finestra)
+                                    new_finestra = gui.mostra_partita('O', on_click_cella, on_esci_partita)
+                                    loop_partita('O', new_finestra)
                             else:
                                 if(scelta == 1):
                                     attendi_sfidante()
@@ -251,9 +243,9 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 0 se creatore, 1
                 print("Mossa Non Valida")
                 
             case GameCommand.QUIT:
-                print("Opponent Quit")
-                gui.mostra_errore("L'avversario si è disconnesso", "Esci", on_esci_errore)
-                
+                gui.nascondi_finestra(finestra_partita)
+                gui.mostra_errore("L'avversario si è disconnesso")
+                attiva_aggiornamento()
             case _:
                 print(f"Comando ignoto: {cmd}") 
     print("PARTITA TERMINATA")       
@@ -266,15 +258,16 @@ def invia_mossa(r, c):
     net.invia_intero(sock, c)
 
 def attiva_aggiornamento():
-    global agg_var
+    global agg_id
     aggiorna_partite()
-    agg_var = gui.root.after(2000, attiva_aggiornamento)
+    agg_id = gui.root.after(2000, attiva_aggiornamento)
 
 def disattiva_aggiornamento():
-    global agg_var
-    if(agg_var != None):
-        gui.root.after_cancel(agg_var)
+    global agg_id
+    if(agg_id != None):
+        gui.root.after_cancel(agg_id)
+        agg_id = None
 
 # ----------------------------- MAIN -----------------------------
 gui.root.after(200, on_start)
-gui.mostra_home("", on_crea_partita, on_connetti, on_esci, on_focus, on_unfocus)
+gui.mostra_home("", on_crea_partita, on_connetti, on_esci)
