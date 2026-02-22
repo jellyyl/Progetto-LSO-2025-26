@@ -149,7 +149,6 @@ void quit_game(int disconnected_player, int game_id){
     if(game->state == ST_WAITING){
         game->state = ST_FINISHED;
         printf("P1 ha annullato la partita oppure si è disconnesso dalla lobby %d. Partita chiusa.\n", game_id);
-        pthread_cond_broadcast(&game->cond_wait_P1);
     }
     else if(game->state == ST_APPROVE || game->state == ST_PLAYING){
         
@@ -620,7 +619,6 @@ Game generate_game(int client_id)
 
     pthread_mutex_init(&new_game.game_mutex, NULL);
     pthread_cond_init(&new_game.cond_approve, NULL);
-    pthread_cond_init(&new_game.cond_wait_P1, NULL);
     return new_game;
 }
 

@@ -76,7 +76,6 @@ typedef struct Game{
     int turn; //0 player 1; 1 player 2;
     pthread_mutex_t game_mutex;
     pthread_cond_t cond_approve;
-    pthread_cond_t cond_wait_P1;
     int rematch_status_player1; // 0 = no, 1 = yes
     int rematch_status_player2; // 0 = no, 1 = yes
 } Game;
