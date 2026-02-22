@@ -209,6 +209,8 @@ def mostra_attesa(messaggio, on_annulla=None):
     def animazione_puntini():
         global anim_id
         nonlocal n_puntini
+        if not label.winfo_exists():
+            return
         n_puntini = (n_puntini + 1) % 4
         label.configure(text=messaggio + "." * n_puntini)
         anim_id = attesa.after(500, animazione_puntini)
@@ -248,6 +250,7 @@ def mostra_scelta(messaggio, testo_btn1="Accetta", testo_btn2="Rifiuta"): # Rest
     main.pack(fill="both", expand=True)
     
     scelta.transient(root)
+    scelta.wait_visibility()
     scelta.grab_set()
 
     ttk.Label(
@@ -293,6 +296,7 @@ def mostra_errore(messaggio, testo_btn1="OK", on_press=lambda: None, on_esci=Non
     errore.resizable(False, False)
 
     errore.transient(root)
+    errore.wait_visibility()
     errore.grab_set()
 
     main = ttk.Frame(errore, padding=15)
@@ -363,6 +367,8 @@ def aggiorna_label_partita(testo, colore_sfondo, waiting=False):
         def animazione_puntini():
             global anim_id
             nonlocal n_puntini
+            if not label_turno.winfo_exists():
+                return
             n_puntini = (n_puntini + 1) % 4
             label_turno.configure(text=testo + "." * n_puntini)
             anim_id = root.after(500, animazione_puntini)
@@ -389,6 +395,7 @@ def mostra_partita(giocatore, on_click_cella, on_esci):
     partita.resizable(False, False)
 
     partita.transient(root)
+    partita.wait_visibility()
     partita.grab_set()
 
     main = ttk.Frame(partita, padding=10)
