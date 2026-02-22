@@ -333,7 +333,7 @@ int check_winner(Game* game)
     }
 
     if (!empty_found) return 0; 
-    return 0; 
+    return -1; 
 }
 
 void broadcast_game_state(Game *game, int check_error) {
