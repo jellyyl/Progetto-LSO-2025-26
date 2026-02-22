@@ -175,6 +175,15 @@ def mostra_home(str_partite, on_crea_partita, on_connetti, on_esci):
     root.iconphoto(True, icona)
     root.mainloop()
 
+def elimina_animazione_corrente():
+    global anim_id
+    if anim_id is not None:
+        try:
+            root.after_cancel(anim_id)
+        except tk.TclError:
+            pass
+        anim_id = None
+
 def mostra_attesa(messaggio, on_annulla=None):
     attesa = tk.Toplevel(root)
     attesa.title("In attesa...")
@@ -198,21 +207,16 @@ def mostra_attesa(messaggio, on_annulla=None):
     n_puntini = 0
 
     def animazione_puntini():
+        global anim_id
         nonlocal n_puntini
         n_puntini = (n_puntini + 1) % 4
         label.configure(text=messaggio + "." * n_puntini)
-        attesa.after(500, animazione_puntini)
+        anim_id = attesa.after(500, animazione_puntini)
 
     animazione_puntini()
 
     def eliminaanimazione_and_onannulla():
-        global anim_id
-        if anim_id is not None:
-            try:
-                root.after_cancel(anim_id)
-            except tk.TclError:
-                pass
-            anim_id = None
+        elimina_animazione_corrente()
         on_annulla()
 
     if(on_annulla != None):
@@ -278,6 +282,7 @@ def mostra_scelta(messaggio, testo_btn1="Accetta", testo_btn2="Rifiuta"): # Rest
 
     gestisci_riduzione_a_icona(scelta)
     scelta.iconphoto(True, icona)
+    scelta.protocol("WM_DELETE_WINDOW", lambda: None)
     scelta.wait_window()
     return risultato
 
@@ -372,7 +377,12 @@ def abilita_griglia_partita():
         if(tris_canvas.gettags(i)[0] == "0"):
             tris_canvas.itemconfig(i, state="normal")
 
+def disabilita_esci_partita():
+    partita.protocol("WM_DELETE_WINDOW", lambda: None)
+
+
 def mostra_partita(giocatore, on_click_cella, on_esci):
+    global partita
     partita = tk.Toplevel(root)
     partita.title("Tris")
     partita.geometry(calcola_geometria(360, 380))
@@ -446,6 +456,7 @@ def mostra_partita(giocatore, on_click_cella, on_esci):
     gestisci_riduzione_a_icona(partita)
 
     def onesci_and_delete():
+        elimina_animazione_corrente()
         on_esci()
         nascondi_finestra(partita)
     partita.protocol("WM_DELETE_WINDOW", onesci_and_delete)

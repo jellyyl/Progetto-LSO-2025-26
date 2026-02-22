@@ -218,6 +218,7 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
             
             case GameCommand.WIN | GameCommand.LOSE | GameCommand.DRAW as end_cmd:
                 gui.disabilita_griglia_partita()
+                gui.disabilita_esci_partita()
                 str_griglia = net.raw_a_string(cmd_raw[4:4096])
                 if(str_griglia != ""):
                     aggiorna_griglia(str_griglia)
@@ -249,7 +250,7 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                             net.invia_intero(sock, game_id)
                             net.invia_intero(sock, scelta)
                             if(end_cmd == GameCommand.DRAW and scelta == 1):
-                                finestra_attesa = gui.mostra_attesa("Attendendo la risposta dello sfidante")
+                                finestra_attesa = gui.mostra_attesa("Attendendo la scelta dello sfidante")
                                 msg = net.richiedi_intero(sock, gui.root)
                                 gui.nascondi_finestra(finestra_attesa)
 
