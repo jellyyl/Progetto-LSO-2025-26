@@ -250,7 +250,7 @@ def mostra_scelta(messaggio, testo_btn1="Accetta", testo_btn2="Rifiuta"): # Rest
     main.pack(fill="both", expand=True)
     
     scelta.transient(root)
-    scelta.wait_visibility()
+    #scelta.wait_visibility()
     scelta.grab_set()
 
     ttk.Label(
@@ -296,7 +296,7 @@ def mostra_errore(messaggio, testo_btn1="OK", on_press=lambda: None, on_esci=Non
     errore.resizable(False, False)
 
     errore.transient(root)
-    errore.wait_visibility()
+    #errore.wait_visibility()
     errore.grab_set()
 
     main = ttk.Frame(errore, padding=15)
@@ -395,7 +395,7 @@ def mostra_partita(giocatore, on_click_cella, on_esci):
     partita.resizable(False, False)
 
     partita.transient(root)
-    partita.wait_visibility()
+    #partita.wait_visibility()
     partita.grab_set()
 
     main = ttk.Frame(partita, padding=10)
