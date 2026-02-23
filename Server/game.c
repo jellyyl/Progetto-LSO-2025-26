@@ -569,7 +569,7 @@ int rematch_from_both(Game *game, int socket_descriptor, int response)
     if (socket_descriptor == game->id_player1)
     {
         game->rematch_status_player1 = response;
-        if (response == 0)
+        if (response == 0 && game->rematch_status_player2 != 0)
         {
             int msg = MSG_REMATCH_DECLINED;
             send(game->id_player2, &msg, sizeof(int), 0);
@@ -578,7 +578,7 @@ int rematch_from_both(Game *game, int socket_descriptor, int response)
     else if (socket_descriptor == game->id_player2)
     {
         game->rematch_status_player2 = response;
-        if (response == 0)
+        if (response == 0 && game->rematch_status_player1 != 0)
         {
             int msg = MSG_REMATCH_DECLINED;
             send(game->id_player1, &msg, sizeof(int), 0);
@@ -623,10 +623,10 @@ int rematch_from_both(Game *game, int socket_descriptor, int response)
         printf("Entrambi i giocatori hanno accettato la rivincita per la partita %d!\n", game->id);
         clear_game(game);
         game->state = ST_PLAYING;
+        
+        start_game(game, game->id_player1);
+        start_game(game, game->id_player2);
     }
-
-    start_game(game, game->id_player1);
-    start_game(game, game->id_player2);
 
     pthread_mutex_unlock(&game->game_mutex);
 
