@@ -563,7 +563,6 @@ int rematch_by_winner(Game *game, int socket_descriptor, int response)
         return -1;
     }
 
-    // bisogna cambiare e gestire la fine della partita
     if (response != 1)
     {
         remove_game_by_id(&game_vector, game->id);
