@@ -15,7 +15,7 @@ Il progetto include:
 Il progetto può essere eseguito tramite docker. Per le build dei container si devono eseguire questi comandi in questo ordine:
 
 ``` bash
-# 1 creazione container serevr
+# 1 creazione container server
 cd server
 docker compose up --build
 
