@@ -244,20 +244,23 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                             net.invia_intero(sock, Actions.REMATCH)
                             net.invia_intero(sock, game_id)
                             net.invia_intero(sock, scelta)
-                            if(end_cmd == GameCommand.DRAW and scelta == 1):
-                                finestra_attesa = gui.mostra_attesa("Attendendo la scelta dello sfidante")
-                                msg = net.richiedi_intero(sock, gui.root)
-                                gui.nascondi_finestra(finestra_attesa)
+                            if(end_cmd == GameCommand.DRAW):
+                                    finestra_attesa = gui.mostra_attesa("Attendendo la scelta dello sfidante")
+                                    msg = net.richiedi_intero(sock, gui.root)
+                                    gui.nascondi_finestra(finestra_attesa)
 
-                                if(msg == ResponseCode.MSG_REMATCH_DECLINED):
-                                    gui.mostra_errore("Lo sfidante ha rifiutato")
-                                    attiva_aggiornamento()
-                                elif(msg == ResponseCode.MSG_START_PLAYER1):
-                                    new_finestra = gui.mostra_partita('X', on_click_cella, on_esci_partita)
-                                    loop_partita('X', new_finestra)
-                                elif(msg == ResponseCode.MSG_START_PLAYER2):
-                                    new_finestra = gui.mostra_partita('O', on_click_cella, on_esci_partita)
-                                    loop_partita('O', new_finestra)
+                                    if(scelta == 1):
+                                        if(msg == ResponseCode.MSG_REMATCH_DECLINED):
+                                            gui.mostra_errore("Lo sfidante ha rifiutato")
+                                            attiva_aggiornamento()
+                                        elif(msg == ResponseCode.MSG_START_PLAYER1):
+                                            new_finestra = gui.mostra_partita('X', on_click_cella, on_esci_partita)
+                                            loop_partita('X', new_finestra)
+                                        elif(msg == ResponseCode.MSG_START_PLAYER2):
+                                            new_finestra = gui.mostra_partita('O', on_click_cella, on_esci_partita)
+                                            loop_partita('O', new_finestra)
+                                    else:
+                                        attiva_aggiornamento()
                             else:
                                 if(scelta == 1):
                                     attendi_sfidante()
