@@ -96,8 +96,20 @@ int rematch_from_both(Game* game, int sd, int response);
 int rematch_by_winner(Game* game, int sd, int response);
 int do_rematch(int game_id, int sd);
 int clear_game(Game *game);
-static void reset_board(Game *game);
 void start_game(Game *game, int starting_player_socket_descriptor);
+void move(int game_id, int socket_descriptor);
+void send_board_to_socket(int socket_descriptor, Game *game, GameCommand cmd);
+int check_winner(Game *game);
+int create_game(int client_id);
+Game generate_game(int client_id);
+void get_list_game(int socket_descriptor);
+void join_game(int client_id, int game_id, int socket_descriptor);
+void approve_join_request(int game_id, int socket_descriptor, int response);
+void broadcast_game_state(Game *game, int check_error);
+void quit_game(int disconnected_player, int game_id);
+void reset_board(Game *game);
+void start_game(Game *game, int starting_player_socket_descriptor);
+int is_move_valid(Game *game, int row, int col, int player_socket_descriptor);
 
 
 

@@ -1,17 +1,15 @@
-version: '3.8'
+
 
 services:
   client:
     build: .
     environment:
-      # Con host.docker.internal riusciamo a raggiungere il server se questo è esposto sull'host locale.
       - SERVER_IP=${SERVER_IP:-host.docker.internal}
       - SERVER_PORT=${SERVER_PORT:-5200}
       
       # Necessario per i container Docker per renderizzare la grafica (X11) sull'host
       - DISPLAY=${DISPLAY}
     volumes:
-      # Collega il display (server X11) della tua macchina al container Docker
       - /tmp/.X11-unix:/tmp/.X11-unix
     
   

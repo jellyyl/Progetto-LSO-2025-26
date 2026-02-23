@@ -12,20 +12,7 @@
 
 game_vector_t game_vector;
 int list_increment_game_id = 0;
-
-void move(int game_id, int socket_descriptor);
-void send_board_to_socket(int socket_descriptor, Game *game, GameCommand cmd);
-
-int check_winner(Game *game);
-int create_game(int client_id);
-Game generate_game(int client_id);
-void get_list_game(int socket_descriptor);
-void join_game(int client_id, int game_id, int socket_descriptor);
-void approve_join_request(int game_id, int socket_descriptor, int response);
-void broadcast_game_state(Game *game, int check_error);
-void quit_game(int disconnected_player, int game_id);
-static void reset_board(Game *game);
-void start_game(Game *game, int starting_player_socket_descriptor);
+pthread_mutex_t id_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Funzione principale che gestisce le azioni dell'utente
 void *game_action(void *arg)
@@ -373,8 +360,6 @@ void broadcast_game_state(Game *game, int check_error)
     {
 
         int winner = check_winner(game);
-        char msg_p1[100];
-        char msg_p2[100];
 
         if (winner == 0)
         {
@@ -656,7 +641,9 @@ int rematch_from_both(Game *game, int socket_descriptor, int response)
 Game generate_game(int client_id)
 {
     Game new_game;
+    pthread_mutex_lock(&id_mutex);
     new_game.id = ++list_increment_game_id;
+    pthread_mutex_unlock(&id_mutex);
     new_game.id_player1 = client_id;
     new_game.id_player2 = -1;
     new_game.turn = 0;
@@ -747,7 +734,7 @@ int clear_game(Game *game)
     return 0;
 }
 
-static void reset_board(Game *game) {
+void reset_board(Game *game) {
     for (int i = 0; i < BOARD_SIZE; i++) {
         for (int j = 0; j < BOARD_SIZE; j++) {
             game->table[i][j] = ' ';
