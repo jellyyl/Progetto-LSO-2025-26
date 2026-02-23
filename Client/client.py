@@ -229,15 +229,13 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                     gui.nascondi_finestra(finestra_partita)
                     if(end_cmd != GameCommand.LOSE): 
                         msg = net.richiedi_intero(sock, gui.root)
-                        add_text = ""
                         if(msg == ResponseCode.MSG_CHANGE_OWNER):
-                            add_text = "Sei diventato il proprietario della partita! "
                             msg = net.richiedi_intero(sock, gui.root)
 
                         if(msg == ResponseCode.MSG_REMATCH_REQUEST):
-                            scelta = 1 - gui.mostra_scelta((add_text + "Vuoi rimanere in attesa di un nuovo sfidante?") 
+                            scelta = 1 - gui.mostra_scelta(("Vuoi rimanere in attesa di un nuovo sfidante?") 
                                                             if end_cmd != GameCommand.DRAW 
-                                                            else "Vuoi rigiocare con questo sfidante?")  # "1-" da levare
+                                                            else "Vuoi rigiocare con questo sfidante?")
                             net.invia_intero(sock, Actions.REMATCH)
                             net.invia_intero(sock, game_id)
                             net.invia_intero(sock, scelta)
@@ -257,7 +255,7 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                                             new_finestra = gui.mostra_partita('O', on_click_cella, on_esci_partita)
                                             loop_partita('O', new_finestra)
                                     else:
-                                        msg = net.richiedi_intero(sock, gui.root)
+                                        net.richiedi_dato(sock, gui.root, 0.5)
                                         attiva_aggiornamento()
                             else:
                                 if(scelta == 1):
@@ -270,15 +268,14 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                 gui.root.after(2000, gestisci_rematch)
 
             case GameCommand.INVALID:   
-                print("Mossa Non Valida")
+                print("Mossa non valida")
                 
             case GameCommand.QUIT:
                 gui.nascondi_finestra(finestra_partita)
                 gui.mostra_errore("L'avversario si è disconnesso")
                 attiva_aggiornamento()
             case _:
-                print(f"Comando ignoto: {cmd}") 
-    print("PARTITA TERMINATA")       
+                print(f"Comando ignoto: {cmd}")       
 
 def invia_mossa(r, c):
     global game_id
