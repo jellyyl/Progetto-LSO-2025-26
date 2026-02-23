@@ -3,7 +3,6 @@ version: '3.8'
 services:
   client:
     build: .
-    container_name: tris_client
     environment:
       # Con host.docker.internal riusciamo a raggiungere il server se questo è esposto sull'host locale.
       - SERVER_IP=${SERVER_IP:-host.docker.internal}
