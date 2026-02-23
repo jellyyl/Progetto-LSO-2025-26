@@ -626,6 +626,7 @@ int rematch_from_both(Game *game, int socket_descriptor, int response)
     }
 
     start_game(game, game->id_player1);
+    usleep(DELAY_SYNC_MS);
     start_game(game, game->id_player2);
 
     pthread_mutex_unlock(&game->game_mutex);
