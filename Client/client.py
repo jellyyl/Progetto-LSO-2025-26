@@ -24,7 +24,6 @@ class Actions(IntEnum):
     CANCEL = 6
 
 class ResponseCode(IntEnum):
-    MSG_JOIN_OK = 200
     MSG_JOIN_REQUEST = 201
     MSG_JOIN_DENIED = 202
     MSG_START_PLAYER1 = 300
@@ -137,7 +136,7 @@ def on_connetti(partita):
     
     gui.nascondi_finestra(finestra_attesa)
     
-    if conferma == ResponseCode.MSG_JOIN_OK:
+    if conferma == ResponseCode.MSG_START_PLAYER2:
         finestra = gui.mostra_partita('O', on_click_cella, on_esci_partita)
         loop_partita('O', finestra)
     elif conferma == ResponseCode.MSG_JOIN_DENIED:
