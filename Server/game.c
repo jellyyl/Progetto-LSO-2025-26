@@ -539,8 +539,6 @@ int do_rematch(int game_id, int socket_descriptor)
 int rematch_by_winner(Game *game, int socket_descriptor, int response)
 {
 
-    int cmd_message;
-
     if (game->id_player1 != socket_descriptor)
     {
         int err = ERR_REMATCH_NOT_OWNER;
