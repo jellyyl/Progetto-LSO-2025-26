@@ -563,12 +563,9 @@ int rematch_by_winner(Game *game, int socket_descriptor, int response)
         return -1;
     }
 
-    // bisogna cambiare e gestire la fine della partita
     if (response != 1)
     {
-        cmd_message = CMD_OVER;
         remove_game_by_id(&game_vector, game->id);
-        send(socket_descriptor, &cmd_message, sizeof(int), 0);
         return 0;
     }
 
