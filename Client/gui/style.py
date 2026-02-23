@@ -1,7 +1,5 @@
 from tkinter import ttk
 
-# ---------------- STILI ----------------
-
 def setup_style(root):
     style = ttk.Style(root)
     style.theme_use("clam")

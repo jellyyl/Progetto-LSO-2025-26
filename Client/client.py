@@ -9,8 +9,8 @@ ip = os.getenv("SERVER_IP", "127.0.0.1")
 porta = int(os.getenv("SERVER_PORT", "5200"))
 
 # ---------------------------- GLOBAL ----------------------------
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)    # Socket del client
-game_id = None      # ID della partita che si sta giocando
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+game_id = None
 agg_id = None
 
 # ----------------------------- ENUM -----------------------------
@@ -98,7 +98,6 @@ def attendi_sfidante():
             attiva_aggiornamento()
             return
 
-        # The join request logic in server: sends [MSG_JOIN_REQUEST, game_id] (2 ints)
         if req == ResponseCode.MSG_JOIN_REQUEST:
             if len(raw) >= 8:
                 game_id = net.raw_a_int(raw[4:8])
@@ -120,12 +119,9 @@ def attendi_sfidante():
                     finestra = gui.mostra_partita('X', on_click_cella, on_esci_partita)
                     loop_partita('X', finestra)
                     return
-                # if rejected by server, we just reopen the waiting window
                 finestra_attesa = gui.mostra_attesa("In attesa di un giocatore", on_annulla)
             else:
-                # We rejected. The server replies with MSG_CANCELLED, we read it
                 conferma = net.richiedi_intero(sock, gui.root)
-                # Reopen waiting window for the next player
                 finestra_attesa = gui.mostra_attesa("In attesa di un giocatore", on_annulla)
 
 def on_connetti(partita):
@@ -174,7 +170,7 @@ def aggiorna_partite():
     except gui.tk.TclError:
         pass
 
-def aggiorna_griglia(str_griglia): # Da rimuovere in seguito (arriverà dal server la stringa già pulita)
+def aggiorna_griglia(str_griglia):
     for i in range(0, 9):
         if(str_griglia[i] == ' '):
             continue
@@ -186,8 +182,7 @@ def aggiorna_griglia(str_griglia): # Da rimuovere in seguito (arriverà dal serv
 
 def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore, 'O' se sfidante
     cmd = GameCommand.UNKNOWN
-    
-    # Loop finché non arriva un comando terminale o quit
+
     while cmd not in [GameCommand.WIN, GameCommand.LOSE, GameCommand.DRAW, GameCommand.QUIT]:
         cmd_raw = net.richiedi_dato(sock, gui.root)
         if cmd_raw is None: 

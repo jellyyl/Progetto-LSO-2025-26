@@ -250,7 +250,6 @@ def mostra_scelta(messaggio, testo_btn1="Accetta", testo_btn2="Rifiuta"): # Rest
     main.pack(fill="both", expand=True)
     
     scelta.transient(root)
-    #scelta.wait_visibility()
     scelta.grab_set()
 
     ttk.Label(
@@ -296,7 +295,6 @@ def mostra_errore(messaggio, testo_btn1="OK", on_press=lambda: None, on_esci=Non
     errore.resizable(False, False)
 
     errore.transient(root)
-    #errore.wait_visibility()
     errore.grab_set()
 
     main = ttk.Frame(errore, padding=15)
@@ -395,7 +393,6 @@ def mostra_partita(giocatore, on_click_cella, on_esci):
     partita.resizable(False, False)
 
     partita.transient(root)
-    #partita.wait_visibility()
     partita.grab_set()
 
     main = ttk.Frame(partita, padding=10)
@@ -428,7 +425,7 @@ def mostra_partita(giocatore, on_click_cella, on_esci):
             rect = tris_canvas.create_rectangle(
                 x1, y1, x2, y2,
                 outline="",
-                fill="#F0F0F0",      # grigio = #C4C4C4 grigio scuro = B3B3B3
+                fill="#F0F0F0",
                 tags=(0)    # 0 = cella libera, 1 = cella occupata
             )
 
