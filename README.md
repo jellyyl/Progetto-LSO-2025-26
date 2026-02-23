@@ -5,8 +5,8 @@ Il server gestisce le partite, mentre più client possono connettersi simultanea
 
 Il progetto include:
 
-- `docker-compose.yml` per il **server**
-- `docker-compose.yml` per **client** multipli 
+- `Server/docker-compose.yml` per il **server**
+- `Client/docker-compose.yml` per **client** multipli 
 
 ---
 
