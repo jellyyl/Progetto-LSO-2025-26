@@ -6,14 +6,24 @@ Il server gestisce le partite, mentre più client possono connettersi simultanea
 Il progetto include:
 
 - `docker-compose.yml` per il **server**
-- `docker-compose.yml` per il **client** (da avviare più volte)
+- `docker-compose.yml` per **client** multipli 
 
 ---
 
-# Estrazione del progetto
+# Esecuzione del progetto 
 
-Se hai scaricato il progetto come file `.zip`, prima estrailo:
+Il progetto può essere eseguito tramite docker. Per le build dei container si devono eseguire questi comandi in questo ordine:
 
-```bash
-unzip nome_progetto.zip
-cd nome_progetto
+``` bash
+# 1 creazione container serevr
+cd server
+docker compose up --build
+
+# 2 torna indietro
+cd ..
+
+# 3 creazione container client
+cd client
+docker compose up --scale client=[Numeri client] # inserire un numero per specificare quanti client avviare
+
+```
