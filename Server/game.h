@@ -28,7 +28,6 @@ typedef enum {
 
 typedef enum {
     // --- JOIN PHASE (200-299) ---
-    MSG_JOIN_OK = 200,
     MSG_JOIN_REQUEST = 201,     // Quando notifichi P1 che qualcuno vuole entrare
     MSG_JOIN_DENIED = 202,      // Partita piena o rifiutata
 
@@ -97,6 +96,8 @@ int rematch_from_both(Game* game, int sd, int response);
 int rematch_by_winner(Game* game, int sd, int response);
 int do_rematch(int game_id, int sd);
 int clear_game(Game *game);
+static void reset_board(Game *game);
+void start_game(Game *game, int starting_player_socket_descriptor);
 
 
 

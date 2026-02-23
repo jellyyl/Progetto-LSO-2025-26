@@ -24,7 +24,6 @@ class Actions(IntEnum):
     CANCEL = 6
 
 class ResponseCode(IntEnum):
-    MSG_JOIN_OK = 200
     MSG_JOIN_REQUEST = 201
     MSG_JOIN_DENIED = 202
     MSG_START_PLAYER1 = 300
@@ -137,7 +136,7 @@ def on_connetti(partita):
     
     gui.nascondi_finestra(finestra_attesa)
     
-    if conferma == ResponseCode.MSG_JOIN_OK:
+    if conferma == ResponseCode.MSG_START_PLAYER2:
         finestra = gui.mostra_partita('O', on_click_cella, on_esci_partita)
         loop_partita('O', finestra)
     elif conferma == ResponseCode.MSG_JOIN_DENIED:
@@ -230,14 +229,12 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                     gui.nascondi_finestra(finestra_partita)
                     if(end_cmd != GameCommand.LOSE): 
                         msg = net.richiedi_intero(sock, gui.root)
-                        print(msg)
                         add_text = ""
                         if(msg == ResponseCode.MSG_CHANGE_OWNER):
                             add_text = "Sei diventato il proprietario della partita! "
                             msg = net.richiedi_intero(sock, gui.root)
 
                         if(msg == ResponseCode.MSG_REMATCH_REQUEST):
-                            print(msg)
                             scelta = 1 - gui.mostra_scelta((add_text + "Vuoi rimanere in attesa di un nuovo sfidante?") 
                                                             if end_cmd != GameCommand.DRAW 
                                                             else "Vuoi rigiocare con questo sfidante?")  # "1-" da levare
@@ -245,11 +242,11 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                             net.invia_intero(sock, game_id)
                             net.invia_intero(sock, scelta)
                             if(end_cmd == GameCommand.DRAW):
-                                    finestra_attesa = gui.mostra_attesa("Attendendo la scelta dello sfidante")
-                                    msg = net.richiedi_intero(sock, gui.root)
-                                    gui.nascondi_finestra(finestra_attesa)
-
                                     if(scelta == 1):
+                                        finestra_attesa = gui.mostra_attesa("Attendendo la scelta dello sfidante")
+                                        msg = net.richiedi_intero(sock, gui.root)
+                                        gui.nascondi_finestra(finestra_attesa)
+
                                         if(msg == ResponseCode.MSG_REMATCH_DECLINED):
                                             gui.mostra_errore("Lo sfidante ha rifiutato")
                                             attiva_aggiornamento()
@@ -260,6 +257,7 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                                             new_finestra = gui.mostra_partita('O', on_click_cella, on_esci_partita)
                                             loop_partita('O', new_finestra)
                                     else:
+                                        msg = net.richiedi_intero(sock, gui.root)
                                         attiva_aggiornamento()
                             else:
                                 if(scelta == 1):
@@ -267,7 +265,7 @@ def loop_partita(giocatore, finestra_partita):    # giocatore = 'X' se creatore,
                                 else:
                                     attiva_aggiornamento()
                     else:
-                        attiva_aggiornamento() # GESTIRE ATTIVA AGGIORNAMENTO DOPO REMATCH
+                        attiva_aggiornamento()
 
                 gui.root.after(2000, gestisci_rematch)
 
