@@ -1,4 +1,4 @@
-FROM python:3.10.12-slim
+FROM python:3.10.12
 
 # Installa le dipendenze necessarie per Tkinter (interfaccia grafica Python)
 RUN apt-get update && apt-get install -y \
